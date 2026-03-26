@@ -167,9 +167,6 @@ else:
 
             elif fracture_score >= 2:
                 results.append('Consider spine radiograph if clinically appropriate')
-
-            else:
-                pass
                     
                 below_knee = yes_no('Does the pain radiate below the knee? [y/n] ')
 
