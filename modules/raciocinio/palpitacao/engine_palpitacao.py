@@ -1199,7 +1199,7 @@ def _resultado_inespecifico(dados) -> dict:
 # ENGINE PRINCIPAL
 # =============================================================================
 
-def analisar_palpitacao(dados: dict) -> dict:
+def _analisar_palpitacao_core(dados: dict) -> dict:
     """
     Recebe o dict de dados do subjetivo e retorna o resultado clínico.
     Hierarquia STEP: 1 (emergência) → 2 (urgente/APS) → 3 (eletivo).
@@ -1302,3 +1302,57 @@ def analisar_palpitacao(dados: dict) -> dict:
 
     # 3f. Inespecífico
     return _resultado_inespecifico(dados)
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_palpitacao(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # WPW: verapamil/diltiazem/digoxina são contraindicados absolutos
+    if cat == 'pal_wpw':
+        alertas.append(
+            '🔴 WPW CONFIRMADO — NUNCA usar Verapamil, Diltiazem ou Digoxina: '
+            'podem precipitar condução exclusiva pela via acessória → fibrilação ventricular letal'
+        )
+
+    # QT longo + fármaco que prolonga QT
+    if cat == 'pal_qt_longo_sincope' or dados.get('qt_longo_suspeito'):
+        alertas.append(
+            '⚠️ QT longo: revisar TODOS os fármacos em uso (antipsicóticos, macrolídeos, '
+            'fluoroquinolonas, antidepressivos TCA) e suspender os que prolongam QTc'
+        )
+
+    # Propafenona em FA: nunca sem bloquear o nó AV primeiro
+    if cat == 'pal_fa_nova_cardioversao':
+        alertas.append(
+            '⚠️ Propafenona (pill-in-the-pocket): administrar Metoprolol 25–50 mg VO '
+            '30 min ANTES — previne flutter 1:1 com condução rápida caso o ritmo passe '
+            'por flutter antes de cardioverter'
+        )
+
+    # Instabilidade hemodinâmica → nunca fazer nada oral/ambulatorial
+    if cat == 'pal_instabilidade_hemodinamica':
+        alertas.append(
+            '🔴 INSTABILIDADE HEMODINÂMICA — cardioversão elétrica sincronizada imediata; '
+            'NÃO tentar cardioversão química; acionar SAMU 192'
+        )
+
+    # DOAC + inibidor potente de P-gp/CYP3A4
+    if dados.get('uso_inibidor_pgp_cyp3a4'):
+        alertas.append(
+            '⚠️ Inibidor de P-gp/CYP3A4 em uso (amiodarona, verapamil, cetoconazol, '
+            'ritonavir) → aumenta nível de DOAC: reduzir dose ou ajustar conforme bula'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def analisar_palpitacao(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_palpitacao(_analisar_palpitacao_core(dados), dados)

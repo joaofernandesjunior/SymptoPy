@@ -37,7 +37,7 @@ def _aviso_iot(g):
     return []
 
 
-def interpretar_consciencia(dados):
+def _interpretar_consciencia_core(dados):
     g       = dados.get('glasgow_total', 15)
     glicemia= dados.get('glicemia')
     spo2    = dados.get('spo2')
@@ -449,3 +449,58 @@ def interpretar_consciencia(dados):
         ],
         'encaminhamento': 'PS — todo Glasgow < 13 sem causa clara merece TC e observação',
     }
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_consciencia(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # Glasgow ≤ 8: proteção de VA sempre explícita
+    g = dados.get('glasgow_total', 15)
+    if g <= 8:
+        alertas.append(
+            '🔴 GLASGOW ≤ 8 — risco de aspiração e apneia: preparar material de IOT '
+            'enquanto trata causas reversíveis. Chamar SAMU 192.'
+        )
+
+    # Meningite: ATB antes da TC se houver instabilidade
+    if cat == 'anc_meningite':
+        alertas.append(
+            '⚠️ Meningite bacteriana: Dexametasona 0,15 mg/kg IV + ATB ANTES da TC '
+            'se sinais de herniação (anisocoria, postura em extensão, Babinski bilateral). '
+            'NÃO atrasar ATB para aguardar neuroimagem'
+        )
+
+    # Tiamina ANTES da glicose em etilista / desnutrido
+    if dados.get('alcool_drogas') or dados.get('alcool_halito') or dados.get('desnutricao'):
+        alertas.append(
+            '⚠️ Etilismo/desnutrição: administrar Tiamina 100 mg IV ANTES da glicose — '
+            'glicose sem tiamina pode precipitar encefalopatia de Wernicke irreversível'
+        )
+
+    # DPOC + hipóxia: meta SpO₂ 88-92%
+    if dados.get('dpoc_conhecido') and dados.get('hipoxia'):
+        alertas.append(
+            '⚠️ DPOC + hipóxia: O₂ titulado — meta SpO₂ 88-92% (não > 94%). '
+            'Hiperóxia suprime drive hipóxico → narcose por CO₂'
+        )
+
+    # Intoxicação: não sedativos antes do diagnóstico
+    if dados.get('intoxicacao_suspeita'):
+        alertas.append(
+            '⚠️ Intoxicação suspeita: NÃO administrar sedativos/BZD antes de identificar '
+            'o agente. Ligue para Centro de Toxicologia: 0800 722 6001'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_consciencia(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_consciencia(_interpretar_consciencia_core(dados), dados)

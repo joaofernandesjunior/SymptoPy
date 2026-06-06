@@ -129,7 +129,7 @@ def _causa_prurido(dados):
 # PONTO DE ENTRADA
 # =============================================================================
 
-def interpretar_anorretal(dados):
+def _interpretar_anorretal_core(dados):
     # ── 1. Red flags ─────────────────────────────────────────────────────────
     flags = _avaliar_red_flags(dados)
     if flags:
@@ -182,3 +182,60 @@ def interpretar_anorretal(dados):
         'grau':      'I',
         'tipo':      'anorretal',
     }
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_anorretal(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # Colonoscopia: não adiar em ≥ 45 anos com sangramento novo
+    if cat == 'anorretal_colonoscopia_urgente':
+        alertas.append(
+            '⚠️ Red flag presente — NÃO assumir hemorroida sem colonoscopia. '
+            'CCR pode coexistir com doença hemorroidária'
+        )
+
+    # Hemorroida grau IV: risco de estrangulamento → cirurgia urgente se necrose
+    if cat == 'hemorroida_grau_4':
+        alertas.append(
+            '⚠️ Hemorroida grau IV — encaminhar cirurgia. '
+            'Se prolapso irredutível + dor intensa + necrose: PS urgente '
+            '(estrangulamento hemorroidário)'
+        )
+
+    # Trombose < 72h: janela para incisão
+    if cat == 'hemorroida_trombosada':
+        horas = resultado.get('horas', 999)
+        if horas <= 72:
+            alertas.append(
+                f'⚠️ Trombose há {horas}h — ainda dentro da janela (≤ 72h). '
+                'Incisão e drenagem sob anestesia local alivia dor rapidamente. '
+                'Após 72h: tratamento conservador (sitz bath, fibras, analgesia)'
+            )
+        else:
+            alertas.append(
+                f'⚠️ Trombose há {horas}h — fora da janela cirúrgica (> 72h). '
+                'Tratamento conservador: sitz bath, fibras, analgesia, resolução em 7–10d'
+            )
+
+    # Fissura crônica + primeiro tratamento: não cirurgia antes de tópicos
+    if cat == 'fissura_anal':
+        tipo = resultado.get('tipo_fissura', '')
+        if tipo == 'cronica':
+            alertas.append(
+                '⚠️ Fissura crônica: tentar nitroglicerina 0,2% ou diltiazem 2% tópico '
+                'por 6–8 semanas ANTES de indicar cirurgia (esfincterotomia lateral interna)'
+            )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_anorretal(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_anorretal(_interpretar_anorretal_core(dados), dados)

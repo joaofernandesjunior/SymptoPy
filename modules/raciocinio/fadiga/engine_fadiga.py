@@ -230,7 +230,7 @@ def _avaliar_criterios_iom(dados):
 # PONTO DE ENTRADA
 # =============================================================================
 
-def interpretar_fadiga(dados):
+def _interpretar_fadiga_core(dados):
     # Calcular STOP-BANG total se não preenchido pelo subjetivo
     if 'stopbang_total' not in dados:
         dados['stopbang_total'] = sum([
@@ -347,3 +347,53 @@ def interpretar_fadiga(dados):
         ],
         'mensagem': 'Fadiga com critérios incompletos para ME/SFC — acompanhar evolução.',
     }
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_fadiga(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # ME/SFC: exercício graduado (GET) é contraindicado — não confundir com psiquiátrica
+    if cat == 'fadiga_me_sfc':
+        alertas.append(
+            '🔴 ME/SFC — GET (Graded Exercise Therapy) CONTRAINDICADO: '
+            'pode desencadear PEM grave e piorar permanentemente. '
+            'PACING é o padrão (NICE 2021 / CDC). NÃO prescrever exercício progressivo'
+        )
+
+    # Apneia + atividade risco (motorista, piloto, etc.): não dirigir sem tratamento
+    if cat == 'fadiga_secundaria_apneia':
+        alertas.append(
+            '⚠️ Sonolência diurna grave (AOS suspeita): orientar sobre risco de '
+            'acidentes — dirigir com AOS não tratada é proibido pelo CTB'
+        )
+
+    # PHQ-2 positivo: risco de suicídio — perguntar sempre
+    if cat == 'fadiga_secundaria_psiquiatrica':
+        alertas.append(
+            '⚠️ Triagem positiva para depressão: SEMPRE perguntar sobre ideação suicida '
+            '(PHQ-9 item 9). Se presente, avaliar risco e encaminhar urgente se necessário'
+        )
+
+    # Red flag: neoplasia/linfadenopatia → urgência
+    if cat == 'fadiga_red_flags':
+        flags = resultado.get('red_flags', {}).get('flags', [])
+        urgentes = [f for f in flags if f.get('urgencia') == 'urgente']
+        if urgentes:
+            alertas.append(
+                '🔴 Red flag presente — NÃO manejar como fadiga primária. '
+                'Investigar causa grave urgentemente (ver conduta específica abaixo)'
+            )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_fadiga(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_fadiga(_interpretar_fadiga_core(dados), dados)

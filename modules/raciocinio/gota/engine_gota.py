@@ -252,7 +252,7 @@ def _avaliar_ult(dados):
 # PONTO DE ENTRADA
 # =============================================================================
 
-def interpretar_gota(dados):
+def _interpretar_gota_core(dados):
     """Motor principal — retorna dict com categoria + conduta estruturada."""
 
     # ── 1. Red flags ─────────────────────────────────────────────────────────
@@ -302,3 +302,62 @@ def interpretar_gota(dados):
         'egfr':             dados.get('egfr'),
         'gota_confirmada':  dados.get('gota_confirmada_previa', False),
     }
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_gota(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # Artrite séptica: não tratar como gota até excluir infecção
+    if cat == 'gota_artrite_septica_excluir':
+        alertas.append(
+            '🔴 Artrite séptica não excluída — NÃO iniciar anti-inflamatório antes de '
+            'artrocentese com análise do líquido. ATB empírico se sepse sistêmica'
+        )
+
+    # AINE contraindicado ≥ 60 anos
+    idade = dados.get('idade', 0)
+    if idade >= 60:
+        alertas.append(
+            f'⚠️ Paciente com {idade} anos — AINE está CONTRAINDICADO (≥ 60 anos): '
+            'risco de sangramento GI, nefrotoxicidade e eventos CV. Usar Colchicina ou corticoide'
+        )
+
+    # Colchicina + inibidor CYP3A4/Pgp → toxicidade grave
+    cond = resultado.get('conduta_aguda', {})
+    opcoes = cond.get('opcoes', [])
+    tem_colchicina = any('olchicina' in str(o) for o in opcoes)
+    if tem_colchicina and dados.get('inibidor_cyp3a4_pgp'):
+        alertas.append(
+            '⚠️ Colchicina + inibidor de CYP3A4/Pgp (ex: claritromicina, ciclosporina, '
+            'verapamil): VETO — toxicidade grave (miopatia, neuropatia). Usar corticoide'
+        )
+
+    # Colchicina contraindicada se eGFR < 30
+    egfr = dados.get('egfr')
+    if egfr is not None and egfr < 30:
+        alertas.append(
+            f'⚠️ eGFR {egfr} mL/min/1.73m² — Colchicina contraindicada (eGFR < 30). '
+            'Usar prednisona 0,5 mg/kg/dia × 5-7d como alternativa'
+        )
+
+    # HLA-B*5801 em origens de risco
+    ult = resultado.get('ult', {})
+    if ult.get('hla_alerta'):
+        alertas.append(
+            '⚠️ Origem de alto risco para HLA-B*5801 (asiático, africano): testar antes '
+            'de iniciar alopurinol — HLA-B*5801 positivo = risco de SJS/TEN fatal'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_gota(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_gota(_interpretar_gota_core(dados), dados)

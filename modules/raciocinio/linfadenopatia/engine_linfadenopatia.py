@@ -26,7 +26,7 @@ def _red_flags(dados):
         flags.append('Sintomas B (febre/sudorese noturna/perda de peso)')
     if dados.get('localizacao') in _LOCAIS_SEMPRE_BIOPSIA:
         flags.append(f'Localização {dados["localizacao"]} — sempre patológico')
-    if dados.get('textura') == 'duro_fixo':
+    if dados.get('textura') == 'petreo_fixo':
         flags.append('Consistência dura, pétrea ou fixa')
     if dados.get('crescimento_rapido'):
         flags.append('Crescimento rápido (> 1 cm em < 2 semanas)')
@@ -76,7 +76,7 @@ def _biopsia_indicada(dados):
         loc in _LOCAIS_SEMPRE_BIOPSIA,
         bs,
         (tamanho > 2 and duracao > 4),
-        textura == 'duro_fixo',
+        textura == 'petreo_fixo',
         (idade > 40 and not _tem_causa_infecciosa_clara(dados)),
         atb_sem_melhora,
         pancito,
@@ -370,7 +370,7 @@ def _dx_metastatico(dados):
 # ENGINE PRINCIPAL
 # =============================================================================
 
-def interpretar_linfadenopatia(dados):
+def _interpretar_linfadenopatia_core(dados):
     flags   = _red_flags(dados)
     loc     = dados.get('localizacao', '')
     tamanho = dados.get('tamanho_cm', 0)
@@ -383,13 +383,13 @@ def interpretar_linfadenopatia(dados):
     # ── 1. Linfonodo supraclavicular/epitroclear/poplíteo → sempre biópsiar
     if loc in _LOCAIS_SEMPRE_BIOPSIA:
         # Tenta definir se metastático ou linfoma
-        if textura == 'duro_fixo' or idade > 50 or dados.get('tabagismo'):
+        if textura == 'petreo_fixo' or idade > 50 or dados.get('tabagismo'):
             return {**_dx_metastatico(dados), 'red_flags': flags}
         return {**_dx_linfoma(dados), 'red_flags': flags}
 
     # ── 2. Red flags → encaminhamento urgente
     if len(flags) >= 2 or bs or dados.get('pancitopenia') or dados.get('blastos'):
-        if textura == 'duro_fixo' or idade > 50:
+        if textura == 'petreo_fixo' or idade > 50:
             return {**_dx_metastatico(dados), 'red_flags': flags}
         return {**_dx_linfoma(dados), 'red_flags': flags}
 
@@ -443,7 +443,7 @@ def interpretar_linfadenopatia(dados):
     # ── 9. Biópsia indicada sem diagnóstico específico
     if biopsia:
         # Suspeita predominante: linfoma vs. metástase
-        if textura == 'duro_fixo' or (idade > 50 and dados.get('tabagismo')):
+        if textura == 'petreo_fixo' or (idade > 50 and dados.get('tabagismo')):
             return {**_dx_metastatico(dados), 'red_flags': flags, 'motivo_biopsia': _motivo_biopsia(dados)}
         return {**_dx_linfoma(dados), 'red_flags': flags, 'motivo_biopsia': _motivo_biopsia(dados)}
 
@@ -483,7 +483,7 @@ def _motivo_biopsia(dados):
         motivos.append('Sintomas B presentes')
     if dados.get('tamanho_cm', 0) > 2 and dados.get('duracao_semanas', 0) > 4:
         motivos.append(f'Tamanho {dados["tamanho_cm"]} cm por {dados["duracao_semanas"]} semanas')
-    if dados.get('textura') == 'duro_fixo':
+    if dados.get('textura') == 'petreo_fixo':
         motivos.append('Consistência dura/fixa')
     if dados.get('idade', 0) > 40 and not _tem_causa_infecciosa_clara(dados):
         motivos.append('Idade > 40 sem causa infecciosa clara')
@@ -508,3 +508,56 @@ def _causa_reativa_provavel(dados):
     if dados.get('medicamentos_culpados'):
         return 'reação medicamentosa'
     return 'causa infecciosa/reativa inespecífica'
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_linfadenopatia(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # Linfoma suspeito: biópsiar urgente — não esperar
+    if cat == 'linfoma_suspeito':
+        alertas.append(
+            '🔴 Linfoma suspeito: biópsia excisional urgente — NÃO puncionar (PAAF insuficiente). '
+            'Encaminhar hematologia/oncologia em < 2 semanas'
+        )
+
+    # Neoplasia metastática: origem primária desconhecida — rastrear
+    if cat == 'neoplasia_metastatica':
+        alertas.append(
+            '🔴 Adenopatia metastática: investigar primário (TC tórax/abdômen/pelve + '
+            'marcadores tumorais + endoscopia se indicado). Encaminhamento oncológico urgente'
+        )
+
+    # HIV primária: janela imunológica — ELISA pode ser falso-negativo
+    if cat == 'hiv_infeccao_primaria':
+        alertas.append(
+            '⚠️ Infecção primária HIV: ELISA de 4ª geração ou carga viral HIV RNA — '
+            'soroconversão pode demorar 2-4 semanas. Tratar parceiros, notificar SINAN'
+        )
+
+    # TB linfonodal: cuidado com PAAF — pode disseminar
+    if cat == 'tb_linfadenopatia':
+        alertas.append(
+            '⚠️ TB ganglionar: PAAF orientada por palpação ou USG para pesquisa de BAAR + '
+            'cultura. Notificação compulsória ao SINAN dentro de 24h do diagnóstico'
+        )
+
+    # Localização supraclavicular: sempre patológica
+    if dados.get('localizacao') == 'supraclavicular':
+        alertas.append(
+            '⚠️ Linfonodo supraclavicular: sempre patológico — neoplasia torácica/abdominal '
+            'até prova em contrário. Biópsia obrigatória'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_linfadenopatia(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_linfadenopatia(_interpretar_linfadenopatia_core(dados), dados)

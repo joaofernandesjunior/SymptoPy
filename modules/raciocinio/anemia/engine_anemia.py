@@ -676,7 +676,7 @@ def _rx_hemolitica():
 # ENGINE PRINCIPAL
 # =============================================================================
 
-def interpretar_anemia(dados):
+def _interpretar_anemia_core(dados):
     hb       = dados.get('hb', 0)
     mcv      = dados.get('mcv', 0)
     wbc      = dados.get('wbc', 10)
@@ -748,3 +748,59 @@ def interpretar_anemia(dados):
         'tratamento': classif.get('tratamento', []),
         'encaminhamento': classif.get('encaminhamento'),
     }
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_anemia(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+    hb  = resultado.get('hb', 0)
+
+    # Alerta de transfusão por critério estrito
+    if resultado.get('alerta_transfusao'):
+        alertas.append(
+            f'🔴 ANEMIA GRAVE — Hb {hb} g/dL: avaliar transfusão de concentrado de hemácias. '
+            'Limiar: Hb < 7 g/dL (ou < 8 g/dL se doença cardiovascular/dispneia). '
+            'Encaminhar PS se instabilidade'
+        )
+
+    # Pancitopenia: emergência hematológica
+    if cat == 'pancitopenia':
+        alertas.append(
+            '🔴 PANCITOPENIA — falência medular até prova em contrário. '
+            'Hematologia urgente. Suspender medicamentos mielotóxicos imediatamente'
+        )
+
+    # B12 baixa + neurológico: urgência neurológica
+    if cat == 'anemia_b12' and dados.get('sintomas_neurologico'):
+        alertas.append(
+            '⚠️ Deficiência de B12 + sintomas neurológicos: iniciar B12 IM imediatamente — '
+            'lesão medular (degeneração subaguda) pode ser irreversível se tardada'
+        )
+
+    # Ferroterapia oral: não tomar com antiácido/leite
+    if cat == 'anemia_ferropriva':
+        alertas.append(
+            '⚠️ Ferro oral: tomar em jejum ou com suco cítrico (aumenta absorção). '
+            'Não tomar com leite, antiácido, chá ou café (quelam o ferro). '
+            'Fezes escurecidas são esperadas'
+        )
+
+    # Sangramento ativo + anemia: tratar causa antes do ferro
+    if dados.get('sangramento_ativo'):
+        alertas.append(
+            '⚠️ Sangramento ativo — controlar a fonte antes de iniciar reposição de ferro. '
+            'Ferro sem controle do sangramento é ineficaz'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_anemia(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_anemia(_interpretar_anemia_core(dados), dados)

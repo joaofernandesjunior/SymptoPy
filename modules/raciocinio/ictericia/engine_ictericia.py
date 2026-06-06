@@ -123,7 +123,7 @@ def _causas_hepatite(dados):
 # PONTO DE ENTRADA
 # =============================================================================
 
-def interpretar_ictericia(dados):
+def _interpretar_ictericia_core(dados):
     # ── 1. Emergência ────────────────────────────────────────────────────────
     flags = _avaliar_emergencia(dados)
     if flags:
@@ -193,3 +193,59 @@ def interpretar_ictericia(dados):
         'causas':    _causas_hepatite(dados),
         'tipo':      'ictericia',
     }
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_ictericia(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # Emergência: colangite/IHA → nunca manejar ambulatorialmente
+    if cat == 'ictericia_emergencia':
+        alertas.append(
+            '🔴 EMERGÊNCIA — NÃO manejar ambulatorialmente. '
+            'Tríade de Charcot / Pêntade de Reynolds / IHA exigem PS + UTI'
+        )
+
+    # IHA: paracetamol frequente → N-acetilcisteína se < 24h
+    if dados.get('inr_maior_1_5') and dados.get('encefalopatia_hepatica'):
+        if dados.get('medicamento_hepatotoxico'):
+            alertas.append(
+                '⚠️ IHA + hepatotóxico: considerar N-acetilcisteína IV se paracetamol '
+                '(eficaz em até 24h). Descontinuar TODOS os hepatotóxicos imediatamente'
+            )
+
+    # Hepatite B: não usar AINE (hepatotóxico adicional)
+    if cat == 'ictericia_hepatocelular' and (
+        dados.get('hepatite_b_hbsag') or dados.get('contato_hepatite_b')
+    ):
+        alertas.append(
+            '⚠️ Hepatite B suspeita: VETO paracetamol em doses altas e AINE — '
+            'hepatotoxicidade adicional. Teste HBsAg + anti-HBs + HBeAg urgente'
+        )
+
+    # Icterícia obstrutiva: coagulopatia possível → cuidado com procedimentos
+    if cat == 'ictericia_colestatica_obs':
+        alertas.append(
+            '⚠️ Colestase obstrutiva: colher coagulograma antes de qualquer procedimento — '
+            'deficiência de vit K pode causar coagulopatia. Vitamina K 10 mg SC se INR > 1,5'
+        )
+
+    # Malignidade: não adiar encaminhamento
+    if any('malignidade' in str(f.get('achado', '')) for f in resultado.get('red_flags', [])):
+        alertas.append(
+            '🔴 Malignidade não excluída — TC abdome + CA 19-9 + CEA urgentes. '
+            'Encaminhamento oncologia em até 2 semanas'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_ictericia(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_ictericia(_interpretar_ictericia_core(dados), dados)
