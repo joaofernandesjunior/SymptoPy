@@ -260,14 +260,19 @@ def _negativas_cefaleia(cef: dict) -> str:
 
 
 def gerar_subjetivo_cefaleia(admissao):
-    cef = admissao.get("subjetivo_especifico", {}).get("cefaleia")
+    # Web: dados_por_modulo; CLI: subjetivo_especifico
+    cef = (_get_dados_modulo(admissao, 'cefaleia', 'organico')
+           or admissao.get("subjetivo_especifico", {}).get("cefaleia"))
     if not cef:
         return ""
 
     partes = []
 
-    # Único campo com negativa explícita
-    partes.append("cefaleia nova" if cef.get("nova") else "cefaleia não nova")
+    # Único campo com negativa explícita — só quando foi perguntado
+    if "nova" in cef:
+        partes.append("cefaleia nova" if cef.get("nova") else "cefaleia não nova")
+    else:
+        partes.append("Cefaleia")
 
     _campos_positivos = [
         ("recorrente",           "com episódios semelhantes prévios"),
@@ -370,7 +375,9 @@ def _gerar_texto_cefaleia_analise(subj, resultado):
 def _gerar_analise_single(resultado, admissao):
     """Roteia um único resultado para sua função de formatação."""
     if resultado.get("tipo") == "cefaleia":
-        subj = admissao["subjetivo_especifico"]["cefaleia"]
+        # Web: dados_por_modulo; CLI: subjetivo_especifico
+        subj = (_get_dados_modulo(admissao, 'cefaleia', 'organico')
+                or admissao.get("subjetivo_especifico", {}).get("cefaleia", {}))
         return _gerar_texto_cefaleia_analise(subj, resultado)
 
     if resultado.get("tipo") == "vertigem":
@@ -5933,14 +5940,6 @@ def _plano_anemia(resultado: dict) -> str:
 
     cid_str = f' — CID-10: {cid}' if cid else ''
     linhas.append(f'Anemia {tipo} — {_GRAU.get(grau, grau)}{cid_str}')
-    linhas.append(f'Hb {hb} g/dL | VCM {mcv} fL | RDW {rdw}%'
-                  + (f' | RPI {rpi}' if rpi is not None else ''))
-    linhas.append('')
-    linhas.append(f'Diagnóstico: {diag}')
-
-    padrao = resultado.get('padrao', '')
-    if padrao:
-        linhas.append(f'Padrão: {padrao}')
 
     # ── Alerta de transfusão ─────────────────────────────────────────────────
     if resultado.get('alerta_transfusao'):
@@ -7051,9 +7050,9 @@ def gerar_subjetivo_celulite(admissao):
 
     # negativas
     neg = []
-    if dados.get('crepitacao') is False:          neg.append('sem crepitação')
-    if dados.get('necrose') is False:             neg.append('sem necrose')
-    if dados.get('dor_desproporcional') is False: neg.append('sem dor desproporcional')
+    if dados.get('crepitacao') is False:          neg.append('crepitação')
+    if dados.get('necrose') is False:             neg.append('necrose')
+    if dados.get('dor_desproporcional') is False: neg.append('dor desproporcional')
     if neg:
         partes.append(f'Nega: {", ".join(neg)}')
 
@@ -7501,6 +7500,179 @@ def gerar_subjetivo_sono(admissao):
 
 
 # ------------------------------------------------------------------
+# #ANÁLISE — ANEMIA / SONO / CONSCIÊNCIA / LINFADENOPATIA
+# (diagnóstico + CID + justificativa; a conduta fica no #Plano)
+# ------------------------------------------------------------------
+
+_ANEMIA_CATS = frozenset({
+    'anemia_alcool', 'anemia_b12', 'anemia_combinada', 'anemia_doenca_cronica',
+    'anemia_ferropriva', 'anemia_folato', 'anemia_hemolitica',
+    'anemia_hipotireoidismo', 'anemia_macro_indefinida', 'anemia_micro_incompleta',
+    'anemia_micro_indefinida', 'anemia_normo_indefinida', 'anemia_renal',
+    'anemia_reticulocitose', 'anemia_sangramento', 'anemia_smd',
+    'pancitopenia', 'sem_anemia',
+    'talassemia_alfa', 'talassemia_beta', 'talassemia_beta_maior',
+    'talassemia_suspeita',
+})
+
+_SONO_CATS = frozenset({
+    'aos_suspeita', 'bruxismo_sono', 'desmame_benzo', 'insonia_comportamental',
+    'insonia_cronica_primaria', 'insonia_dor', 'insonia_hipotireoidismo',
+    'insonia_psiquiatrica', 'insonia_subaguda', 'insonia_turno',
+    'narcolepsia_suspeita', 'parassonia_nrem', 'pesadelos_tept',
+    'sfas', 'spi', 'tcr_rem_pre_parkinson',
+})
+
+_CONSCIENCIA_CATS = frozenset({
+    'anc_indefinida', 'avc_sangramento', 'choque_hemodinamico',
+    'crise_dissociativa', 'encefalopatia_metabolica', 'hipoglicemia',
+    'hipoxia_grave', 'intoxicacao_alcool', 'meningite_encefalite',
+    'overdose_opioide', 'pos_ictal', 'status_epilepticus', 'tce_hematoma',
+})
+
+_LINFA_CATS = frozenset({
+    'doenca_arranhadura_gato', 'ebv_mononucleose', 'hiv_infeccao_primaria',
+    'ist_linfadenopatia_inguinal', 'linfadenite_bacteriana',
+    'linfadenopatia_inguinal_benigna', 'linfadenopatia_reativa',
+    'linfoma_suspeito', 'massa_inguinal_diferencial', 'neoplasia_metastatica',
+    'tb_linfadenopatia',
+})
+
+
+def _analise_anemia(resultado: dict) -> str:
+    """#Análise — Anemia: classificação + CID + padrão laboratorial."""
+    cat  = resultado.get('categoria', '')
+    cid  = _CID_MAP.get(cat, '')
+    cid_str = f' — CID-10: {cid}' if cid else ''
+
+    if cat == 'sem_anemia':
+        return '✓ Hemoglobina dentro dos limites para sexo/idade — sem anemia.'
+
+    if cat == 'pancitopenia':
+        return (f'⚠️ PANCITOPENIA{cid_str}. '
+                'Acometimento das três séries — investigação hematológica urgente '
+                '(aplasia, infiltração medular, SMD). Não conduzir como anemia isolada.')
+
+    linhas = []
+    grau = {'leve': 'leve', 'moderada': 'moderada', 'grave': 'grave',
+            'muito_grave': 'muito grave'}.get(resultado.get('grau', ''), '')
+    tipo = resultado.get('tipo_mcv', '')
+    diag = resultado.get('diagnostico', '')
+    linhas.append(f'{diag}{cid_str}.')
+
+    # Justificativa laboratorial — por que fechou esse padrão
+    hb  = resultado.get('hb')
+    mcv = resultado.get('mcv')
+    rdw = resultado.get('rdw')
+    rpi = resultado.get('rpi')
+    limiar = resultado.get('limiar')
+    descr  = resultado.get('descr_sexo', '')
+    lab = []
+    if hb is not None and limiar:
+        lab.append(f'Hb {hb} g/dL (limiar {limiar} para {descr})')
+    if mcv: lab.append(f'VCM {mcv} fL → padrão {tipo.lower()}' if tipo else f'VCM {mcv} fL')
+    if rdw: lab.append(f'RDW {rdw}%')
+    if rpi is not None: lab.append(f'RPI {rpi}')
+    if lab:
+        linhas.append('Base laboratorial: ' + ' | '.join(lab) +
+                      (f'. Gravidade: anemia {grau}.' if grau else '.'))
+
+    padrao = resultado.get('padrao', '')
+    if padrao:
+        linhas.append(f'Padrão: {padrao}.')
+
+    if resultado.get('alerta_transfusao'):
+        linhas.append('⚠️ Hb em faixa de avaliação para transfusão '
+                      '(< 7 g/dL, ou < 8 com doença cardiovascular).')
+    return '\n'.join(linhas)
+
+
+def _analise_sono(resultado: dict) -> str:
+    """#Análise — Transtornos do Sono: diagnóstico + CID + scores que fecharam."""
+    cat  = resultado.get('categoria', '')
+    cid  = _CID_SONO.get(cat, '')
+    cid_str = f' — CID-10: {cid}' if cid else ''
+    diag = resultado.get('diagnostico', '')
+    linhas = [f'{diag}{cid_str}.']
+
+    just = []
+    isi_grau = resultado.get('isi_grau', '')
+    if isi_grau:
+        just.append(f'ISI em faixa de insônia {isi_grau}')
+    if cat == 'aos_suspeita':
+        just.append('STOP-BANG em faixa de alto risco para apneia obstrutiva do sono')
+    if cat == 'spi':
+        just.append('4 critérios diagnósticos de SPI presentes (URGE)')
+    if cat == 'narcolepsia_suspeita':
+        just.append('sonolência diurna irresistível + sintomas acessórios (cataplexia/paralisia/alucinações)')
+    if cat == 'tcr_rem_pre_parkinson':
+        just.append('comportamento de atuação dos sonhos — TCR-REM, marcador precoce de sinucleinopatia')
+    if just:
+        linhas.append('Base diagnóstica: ' + '; '.join(just) + '.')
+    return '\n'.join(linhas)
+
+
+def _analise_consciencia(resultado: dict) -> str:
+    """#Análise — ANC: diagnóstico + CID + Glasgow e pista etiológica."""
+    cat  = resultado.get('categoria', '')
+    cid  = _CID_CONSCIENCIA.get(cat, '')
+    cid_str = f' — CID-10: {cid}' if cid else ''
+    diag = resultado.get('diagnostico', '')
+    g    = resultado.get('glasgow')
+    urg  = {'emergencia': '🔴 EMERGÊNCIA', 'urgente': '🟠 Urgente',
+            'eletivo': '🟢 Eletivo'}.get(resultado.get('urgencia', ''), '')
+
+    linhas = [f'{diag}{cid_str}.']
+    base = []
+    if g is not None:
+        base.append(f'Glasgow {g}/15')
+    if urg:
+        base.append(f'prioridade {urg}')
+    if resultado.get('iot_alerta'):
+        base.append('⚠️ Glasgow ≤ 8 — via aérea ameaçada')
+    if base:
+        linhas.append('Estratificação: ' + ' | '.join(base) + '.')
+    linhas.append('Abordagem etiológica sistemática AEIOU-TIPS — causas estruturais, '
+                  'metabólicas e tóxicas devem ser ativamente excluídas.')
+    return '\n'.join(linhas)
+
+
+def _analise_linfadenopatia(resultado: dict) -> str:
+    """#Análise — Linfadenopatia: diagnóstico + CID + padrão e red flags."""
+    cat  = resultado.get('categoria', '')
+    cid  = _CID_LINFA.get(cat, '')
+    cid_str = f' — CID-10: {cid}' if cid else ''
+    diag = resultado.get('diagnostico', '')
+    linhas = [f'{diag}{cid_str}.']
+
+    padrao = resultado.get('padrao', '')
+    if padrao:
+        # Filtra segmentos sem valor preenchido ("Local: ", "Doloroso: None", "Tamanho: 0 cm")
+        segs = []
+        for seg in padrao.replace('\n', '|').split('|'):
+            seg = seg.strip()
+            if not seg:
+                continue
+            valor = seg.split(':', 1)[-1].strip() if ':' in seg else seg
+            if valor in ('', 'None', '0 cm', '0 semanas'):
+                continue
+            segs.append(seg)
+        if segs:
+            linhas.append('Caracterização: ' + ' | '.join(segs) + '.')
+
+    flags = resultado.get('red_flags', [])
+    if flags:
+        linhas.append('⚠️ Red flags presentes: ' + ', '.join(flags) + '.')
+    elif cat in ('linfadenopatia_reativa', 'linfadenopatia_inguinal_benigna'):
+        linhas.append('Sem red flags (sem sintomas B, sem crescimento progressivo, '
+                      'sem consistência endurecida/aderida) — padrão benigno/reativo.')
+
+    if resultado.get('biopsia'):
+        linhas.append('Critérios para biópsia presentes.')
+    return '\n'.join(linhas)
+
+
+# ------------------------------------------------------------------
 # ORL — Odinofagia / Dor de Garganta — Subjetivo
 # ------------------------------------------------------------------
 
@@ -7544,11 +7716,11 @@ def gerar_subjetivo_odinofagia(admissao):
 
     # Pertinentes negativos
     neg = []
-    if dados.get('tosse') is False:               neg.append('sem tosse')
-    if dados.get('exsudato_amigdaliano') is False: neg.append('sem exsudato')
-    if dados.get('adenopatia_cervical_ant') is False: neg.append('sem adenopatia cervical')
-    if dados.get('trismo') is False:              neg.append('sem trismo')
-    if dados.get('estridor') is False:            neg.append('sem estridor')
+    if dados.get('tosse') is False:               neg.append('tosse')
+    if dados.get('exsudato_amigdaliano') is False: neg.append('exsudato amigdaliano')
+    if dados.get('adenopatia_cervical_ant') is False: neg.append('adenopatia cervical')
+    if dados.get('trismo') is False:              neg.append('trismo')
+    if dados.get('estridor') is False:            neg.append('estridor')
     if neg:
         partes.append(f'Nega: {", ".join(neg)}')
 
@@ -7594,8 +7766,8 @@ def gerar_subjetivo_otalgia(admissao):
 
     # Sintomas associados
     assoc = []
-    if dados.get('iras_recente'):        assoc.append('IVAS precedeu')
-    if dados.get('ouvido_cheio'):        assoc.append('ouvido cheio')
+    if dados.get('iras_recente'):        assoc.append('IVAS precedeu o quadro')
+    if dados.get('ouvido_cheio'):        assoc.append('sensação de ouvido cheio')
     if dados.get('hipoagusia'):          assoc.append('hipoacusia')
     if dados.get('banho_piscina'):       assoc.append('exposição a água/piscina')
     if dados.get('conjuntivite_purulenta'): assoc.append('conjuntivite purulenta')
@@ -7603,7 +7775,7 @@ def gerar_subjetivo_otalgia(admissao):
         temp = dados.get('temperatura_grau')
         assoc.append(f'febre ({temp}°C)' if temp else 'febre')
     if assoc:
-        partes.append(f'{", ".join(assoc).capitalize()}')
+        partes.append('Associado: ' + ', '.join(assoc))
 
     # Sinais de alarme / mastoidite
     alarme = []
@@ -7624,9 +7796,9 @@ def gerar_subjetivo_otalgia(admissao):
 
     # Pertinentes negativos
     neg = []
-    if dados.get('dor_retroauricular') is False: neg.append('sem dor retroauricular')
-    if dados.get('trago_positivo') is False:     neg.append('trago negativo')
-    if dados.get('otorreia') is False:           neg.append('sem otorreia')
+    if dados.get('dor_retroauricular') is False: neg.append('dor retroauricular')
+    if dados.get('trago_positivo') is False:     neg.append('dor à compressão do trago')
+    if dados.get('otorreia') is False:           neg.append('otorreia')
     if neg:
         partes.append(f'Nega: {", ".join(neg)}')
 
@@ -7662,7 +7834,8 @@ def gerar_subjetivo_rinossinusite(admissao):
     if dados.get('febre'):
         sxs.append('febre alta' if dados.get('febre_alta') else 'febre')
     if sxs:
-        partes.append(f'{", ".join(sxs).capitalize()}')
+        txt_sxs = ', '.join(sxs)
+        partes.append(txt_sxs[0].upper() + txt_sxs[1:])
 
     # Padrão alérgico
     alergi = []
@@ -7690,10 +7863,10 @@ def gerar_subjetivo_rinossinusite(admissao):
 
     # Pertinentes negativos
     neg = []
-    if dados.get('rinorreia_purulenta') is False:  neg.append('sem rinorreia purulenta')
-    if dados.get('dor_facial') is False:           neg.append('sem dor facial')
-    if dados.get('febre') is False:                neg.append('afebril')
-    if dados.get('edema_periorbital') is False:    neg.append('sem edema periorbital')
+    if dados.get('rinorreia_purulenta') is False:  neg.append('rinorreia purulenta')
+    if dados.get('dor_facial') is False:           neg.append('dor facial')
+    if dados.get('febre') is False:                neg.append('febre')
+    if dados.get('edema_periorbital') is False:    neg.append('edema periorbital')
     if neg:
         partes.append(f'Nega: {", ".join(neg)}')
 
@@ -7728,7 +7901,8 @@ def gerar_subjetivo_olho_vermelho(admissao):
     if dados.get('corpo_estranho_sensacao'): sxs.append('sensação de corpo estranho')
     if dados.get('prurido_ocular'):     sxs.append('prurido ocular')
     if sxs:
-        partes.append(f'{", ".join(sxs).capitalize()}')
+        txt_sxs = ', '.join(sxs)
+        partes.append(txt_sxs[0].upper() + txt_sxs[1:])
 
     # Secreção
     sec = []
@@ -7737,7 +7911,8 @@ def gerar_subjetivo_olho_vermelho(admissao):
     if dados.get('secrecao_aquosa'):     sec.append('secreção aquosa')
     if dados.get('lacrimejamento'):      sec.append('lacrimejamento')
     if sec:
-        partes.append(f'{", ".join(sec).capitalize()}')
+        txt_sec = ', '.join(sec)
+        partes.append(txt_sec[0].upper() + txt_sec[1:])
 
     # Contexto / epidemiologia
     ctx = []
@@ -7748,7 +7923,8 @@ def gerar_subjetivo_olho_vermelho(admissao):
     if dados.get('adenopatia_preauricular'):  ctx.append('adenopatia pré-auricular')
     if dados.get('rinite_alergica_conhecida'): ctx.append('rinite alérgica conhecida')
     if ctx:
-        partes.append(f'{", ".join(ctx).capitalize()}')
+        txt_ctx = ', '.join(ctx)
+        partes.append(txt_ctx[0].upper() + txt_ctx[1:])
 
     # Trauma
     if dados.get('trauma_quimico'):
@@ -7766,11 +7942,11 @@ def gerar_subjetivo_olho_vermelho(admissao):
 
     # Pertinentes negativos
     neg = []
-    if dados.get('dor_intensa') is False:        neg.append('sem dor intensa')
-    if dados.get('visao_turva') is False:        neg.append('sem queda de acuidade')
-    if dados.get('halos_coloridos') is False:    neg.append('sem halos')
-    if dados.get('secrecao_purulenta') is False: neg.append('sem secreção purulenta')
-    if dados.get('ciliary_flush') is False:      neg.append('sem ciliary flush')
+    if dados.get('dor_intensa') is False:        neg.append('dor intensa')
+    if dados.get('visao_turva') is False:        neg.append('queda de acuidade visual')
+    if dados.get('halos_coloridos') is False:    neg.append('halos coloridos')
+    if dados.get('secrecao_purulenta') is False: neg.append('secreção purulenta')
+    if dados.get('ciliary_flush') is False:      neg.append('ciliary flush')
     if neg:
         partes.append(f'Nega: {", ".join(neg)}')
 
@@ -7924,11 +8100,32 @@ def _render_receitas(resultado):
             'panico_info':       'Sobre o pânico',
             'farmaco_info':      'Sobre a substância',
             'inespecifico_info': 'Sobre a palpitação',
+            # ── ORL / Oftalmo ───────────────────────────────────────────
+            'sinais_de_alerta':  'Sinais de alerta — retornar imediatamente',
+            'alivio_garganta':   'Alívio da garganta',
+            'atb_compliance':    'Antibiótico — usar até o fim',
+            'transmissao':       'Transmissão',
+            'higiene_ocular':    'Higiene ocular',
+            'higiene_maos':      'Higiene das mãos',
+            'compressas':        'Compressas',
+            'lentes_contato':    'Lentes de contato',
+            'analgesia':         'Analgesia',
+            'ouvido_seco':       'Manter ouvido seco',
+            'calor_local':       'Calor local',
+            'lente_de_contato':  'Lentes de contato',
+            'tranquilizacao':    'Tranquilização',
+            'encaminhar':        'Encaminhamento',
+            'retorno':           'Retorno',
         }
         for chave, texto in orientacoes.items():
             titulo = _TITULO.get(chave, chave.replace('_', ' ').capitalize())
-            # Quebrar textos longos em bullet único com título negritado
-            linhas.append(f'• {titulo}: {texto}')
+            # Valores em lista (ex.: sinais_de_alerta) → um bullet por item
+            if isinstance(texto, (list, tuple)):
+                linhas.append(f'• {titulo}:')
+                for item in texto:
+                    linhas.append(f'    ⚠ {item}')
+            else:
+                linhas.append(f'• {titulo}: {texto}')
 
     return '\n'.join(linhas)
 
@@ -8035,8 +8232,14 @@ _CID_MAP = {
     # ── ORL — Odinofagia ──────────────────────────────────────────────────────
     'orl_mononucleose':              'B27.0',
     'orl_disfonia_cronica':          'J38.3',   # Outras doenças das cordas vocais
+    'orl_faringoamigdalite_bacteriana': 'J03.0', # Amigdalite estreptocócica
+    'orl_faringoamigdalite_test_treat': 'J02.9', # Faringite aguda NE (aguardando TRA)
+    'orl_faringoamigdalite_viral':   'J02.9',   # Faringite aguda NE
+    'orl_abscesso_periamigdaliano':  'J36',     # Abscesso periamigdaliano
+    'orl_emergencia_respiratoria':   'J05.1',   # Epiglotite aguda (obstrução VA suspeita)
 
     # ── ORL — Otalgia ─────────────────────────────────────────────────────────
+    'orl_otite_media_aguda':         'H66.0',   # Otite média supurativa aguda
     'orl_otite_externa':             'H60.9',   # Otite externa NE
     'orl_otite_externa_maligna':     'H60.2',   # Otite externa maligna (necrotizante)
     'orl_mastoidite':                'H70.9',   # Mastoidite NE
@@ -8207,6 +8410,11 @@ _CID_MAP = {
     # ── MSK — Tornozelo / Pé ──────────────────────────────────────────────────
     'avaliacao_tornozelo_pe': 'M79.9',
     'red_flag_tornozelo_pe':  'M79.9',
+
+    # ── Fibromialgia / dor crônica difusa ────────────────────────────────────
+    'fibromialgia_confirmada':     'M79.7',  # Fibromialgia
+    'criterios_insuficientes':     'R52.2',  # Outra dor crônica (critérios ACR não preenchidos)
+    'investigar_causa_secundaria': 'R52.2',  # Dor crônica em investigação
     'entorse_tornozelo':      'S93.4',  # Entorse e distensão do tornozelo
     'trauma_ottawa_positivo': 'S82.6',  # Fratura do maléolo lateral (Ottawa positivo)
     'fasciite_plantar':       'M72.2',  # Fasciite plantar
@@ -8256,9 +8464,40 @@ _CID_DIARREIA_WATERY = {
 }
 
 
+# Engines legados (vertigem/cefaleia) não têm 'categoria' — lookup por diagnóstico
+_CID_VERTIGEM_LEGADO = {
+    'bppv':                        'H81.1',  # VPPB
+    'bppv_canal_horizontal':       'H81.1',
+    'sindrome_vestibular_aguda':   'H81.2',  # Neuronite vestibular
+    'provavel_meniere':            'H81.0',  # Doença de Ménière
+    'possivel_migranea_vestibular':'G43.9',  # Migrânea NE (vestibular)
+    'possivel_central':            'H81.4',  # Vertigem de origem central
+    'presincope':                  'R55',    # Síncope e colapso
+    'presincope_ortostatica':      'I95.1',  # Hipotensão ortostática
+    'indefinido':                  'R42',    # Tontura e instabilidade
+}
+
+_CID_CEFALEIA_LEGADO = {
+    'enxaqueca':                   'G43.9',  # Migrânea NE
+    'cefaleia tensional':          'G44.2',  # Cefaleia tensional
+    'cefaleia em salvas':          'G44.0',  # Cefaleia em salvas
+    'cefaleia sem padrao definido':'R51',    # Cefaleia
+}
+
+
 def _get_cid(resultado: dict) -> str:
     """Retorna o código CID-10 correspondente ao resultado clínico."""
     cat = resultado.get('categoria', '')
+
+    # Engines legados sem categoria — lookup por tipo + diagnóstico
+    if not cat:
+        diag = str(resultado.get('diagnostico', ''))
+        if resultado.get('tipo') == 'vertigem':
+            return _CID_VERTIGEM_LEGADO.get(diag, 'R42')
+        if resultado.get('tipo') == 'cefaleia':
+            if diag.startswith('cefaleia secundaria grave'):
+                return 'R51'
+            return _CID_CEFALEIA_LEGADO.get(diag, 'R51')
 
     # IVAS emergência — sub-lookup por tipo
     if cat == 'ivas_emergencia':
@@ -8432,6 +8671,14 @@ def gerar_texto_prontuario(paciente, admissao):
             txt = _analise_celulite(resultado)
         elif resultado.get('tipo') == 'hemorragia' or categoria in _HEMORRAGIA_CATS:
             txt = _analise_hemorragia(resultado)
+        elif categoria in _ANEMIA_CATS:
+            txt = _analise_anemia(resultado)
+        elif categoria in _SONO_CATS:
+            txt = _analise_sono(resultado)
+        elif categoria in _CONSCIENCIA_CATS:
+            txt = _analise_consciencia(resultado)
+        elif categoria in _LINFA_CATS:
+            txt = _analise_linfadenopatia(resultado)
         else:
             txt = gerar_analise_automatica(admissao)
         if txt:

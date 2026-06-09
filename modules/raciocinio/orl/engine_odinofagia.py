@@ -108,8 +108,6 @@ def _resultado_step1(dados) -> dict:
             '→ abscesso periamigdaliano até prova em contrário. '
             'Acúmulo de pus no espaço peritonsilar → trismo por espasmo do músculo pterigoideo. '
             'Risco de extensão para espaço retrofaríngeo (abscesso retrofaríngeo) e mediastinite. '
-            'Conduta: drenagem cirúrgica (incisão e drenagem ou amigdalectomia de urgência) + '
-            'ATB endovenoso (penicilina + metronidazol). '
             'NÃO manejar ambulatorialmente.'
         )
         conduta = [
@@ -225,11 +223,7 @@ def _resultado_faringoamigdalite(dados) -> dict:
                     ('tosse ausente', not dados.get('tosse')),
                 ] if v
             ]) + '. '
-            'IDSA 2012 e SBI 2024: tratar empiricamente sem teste rápido se score ≥ 4. '
-            '1ª linha absoluta: Penicilina G Benzatina IM dose única '
-            '— adesão máxima, custo mínimo, sem resistência documentada ao GAS. '
-            'Alternativa oral (10 dias): Amoxicilina 875mg 12/12h. '
-            'Retorno se não melhorar em 48–72h — reavaliar abscesso e diagnóstico.'
+            'IDSA 2012 e SBI 2024: tratar empiricamente sem teste rápido se score ≥ 4.'
         )
         tratar = True
 
@@ -242,8 +236,7 @@ def _resultado_faringoamigdalite(dados) -> dict:
             f'Centor score {score}/5 (= 3): probabilidade de GAS ~32%. '
             'SBI 2024: score 3 → tratar empiricamente na APS sem TRA (custo-efetivo no Brasil). '
             'Alternativa: realizar Teste Rápido de Antígeno (TRA) se disponível — '
-            'tratar se positivo, sintomático se negativo. '
-            '1ª linha: Penicilina G Benzatina IM DU ou Amoxicilina 875mg × 10 dias.'
+            'tratar se positivo, sintomático se negativo.'
         )
         tratar = True
 
