@@ -389,6 +389,16 @@ def pre_hemorragia(d: dict) -> dict:
     return d
 
 
+def pre_urinario(d: dict) -> dict:
+    """Converte sexo do cabeçalho ('masculino'/'feminino') para o formato do engine ('M'/'F')."""
+    sexo = d.get('sexo', '')
+    if sexo == 'feminino':
+        d['sexo'] = 'F'
+    elif sexo == 'masculino':
+        d['sexo'] = 'M'
+    return d
+
+
 PREPROCESSORS = {
     'odinofagia':    pre_odinofagia,
     'otalgia':       pre_otalgia,
@@ -406,4 +416,5 @@ PREPROCESSORS = {
     'mao_punho':     pre_msk,
     'tornozelo_pe':  pre_msk,
     'fibromialgia':  pre_msk,
+    'urinario':      pre_urinario,
 }

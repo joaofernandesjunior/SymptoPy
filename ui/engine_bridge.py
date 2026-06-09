@@ -25,10 +25,10 @@ def run_engine(schema_key: str, form_data: dict, patient_data: dict) -> dict | N
     # Mescla dados do paciente no form_data para engines que precisam de idade/sexo
     merged = {**patient_data, **form_data}
 
-    # Campos especiais de paciente que alguns engines esperam diretamente
+    # Cabeçalho do paciente sempre prevalece sobre campos repetidos nos schemas
     for k in ('idade', 'sexo', 'peso_kg', 'gestante'):
-        if k in patient_data:
-            merged.setdefault(k, patient_data[k])
+        if patient_data.get(k) is not None:
+            merged[k] = patient_data[k]
 
     # Remove chaves com valor None — campos numéricos opcionais não preenchidos.
     # Assim os engines usam seus próprios defaults em dados.get(k, default),

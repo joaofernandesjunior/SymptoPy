@@ -175,7 +175,6 @@ MODULE_SCHEMAS = {
             _block('HDA — Glasgow-Blatchford (se melena/hematêmese)', [
                 _num ('bun', 'BUN (mg/dL — 0 se indisponível)', 0, 500, 1, 0),
                 _num ('hb',  'Hemoglobina (g/dL)', 3, 25, 0.1, 13.0),
-                _sel ('sexo','Sexo', [('masculino','Masculino'),('feminino','Feminino')]),
                 _bool('hepatopatia_gbs', 'Hepatopatia / cirrose / HTP'),
                 _bool('icc',             'Insuficiência cardíaca (ICC)'),
             ]),
@@ -186,7 +185,6 @@ MODULE_SCHEMAS = {
                 _bool('alcool_cronico',  'Uso crônico de álcool'),
             ]),
             _block('HDB — Oakland Score (se hematoquezia)', [
-                _num ('idade',     'Idade (anos)',    18, 100, 1, 40),
                 _bool('lgib_previo','Internação prévia por HDB'),
                 _bool('dre_sangue','Toque retal com sangue no dedo'),
             ]),
@@ -309,8 +307,6 @@ MODULE_SCHEMAS = {
                     ('hematuria','Hematúria (sangue na urina)'),
                     ('ambos','Ambos'),
                 ]),
-                _sel ('sexo','Sexo', [('F','Feminino'),('M','Masculino')]),
-                _num ('idade','Idade (anos)', 18, 110, 1, 35),
             ]),
             _block('2 · Sintomas Irritativos / Baixos', [
                 _bool('disuria',            'Disúria / ardência ao urinar'),
@@ -397,7 +393,6 @@ MODULE_SCHEMAS = {
         'blocks': [
             _block('1 · Caracterização', [
                 _num ('dias_sintomas',  'Dias de sintomas', 0, 60, 1, 3),
-                _num ('idade',          'Idade (anos)', 3, 110, 1, 25),
                 _bool('odinofagia_severa','Odinofagia intensa'),
                 _bool('tosse_presente', 'Tosse presente'),
                 _bool('febre_38',       'Febre ≥ 38°C'),
@@ -570,7 +565,6 @@ MODULE_SCHEMAS = {
                 _bool('hemoculturas_feitas','Hemoculturas coletadas', depends_on='labs_disponiveis'),
             ]),
             _block('7 · Comorbidades', [
-                _num ('idade','Idade (anos)', 18, 110, 1, 35),
                 _bool('dm',     'Diabetes mellitus'),
                 _bool('drc',    'Doença renal crônica'),
                 _bool('icc',    'Insuficiência cardíaca'),
@@ -773,7 +767,6 @@ MODULE_SCHEMAS = {
                 _bool('uso_aine_recente', 'AINE recente'),
                 _bool('metformina_dose_alta','Metformina dose alta'),
                 _bool('medicamentos_suspeitos_diarreia','Outro medicamento suspeito'),
-                _num ('idade','Idade (anos)', 0, 110, 1, 35),
             ]),
         ],
         'engine': 'modules.raciocinio.diarreia.engine_diarreia',
@@ -921,7 +914,6 @@ MODULE_SCHEMAS = {
                 _bool('peritonismo',       'Peritonismo / Blumberg +', flag='red'),
             ]),
             _block('Contexto', [
-                _num ('idade',   'Idade', 14, 100, 1, 35),
                 _bool('sexo_feminino', 'Sexo feminino'),
                 _bool('idoso',         'Idoso (≥ 60 anos)'),
                 _bool('imunossuprimido','Imunossuprimido',       flag='yellow'),
@@ -1038,7 +1030,6 @@ MODULE_SCHEMAS = {
                 _bool('vomito_pos_tosse',    'Vômito após acesso de tosse'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 0, 120, 1, 35),
                 _bool('tabagismo_ativo',     'Tabagismo ativo', flag='yellow'),
                 _bool('asma_diagnosticada',  'Asma diagnosticada'),
                 _bool('dpoc',                'DPOC'),
@@ -1110,7 +1101,6 @@ MODULE_SCHEMAS = {
                 _num ('eosinofilos', 'Eosinófilos (cél/μL)', 0, 5000, 10, default=None),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 30, 110, 1, 65),
                 _bool('tabagismo_ativo', 'Tabagismo ativo', flag='yellow'),
                 _bool('ex_tabagista',    'Ex-tabagista'),
             ]),
@@ -1152,7 +1142,6 @@ MODULE_SCHEMAS = {
                 _bool('anemia_ferropriva_confirmada', 'Anemia ferropriva confirmada', flag='yellow'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 18, 100, 1, 45),
             ]),
         ],
         'engine': 'modules.raciocinio.anorretal.engine_anorretal', 'engine_fn': 'interpretar_anorretal',
@@ -1233,7 +1222,6 @@ MODULE_SCHEMAS = {
                 _bool('origem_alto_risco_hlab5801', 'Origem de alto risco HLA-B*5801'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 18, 100, 1, 50),
             ]),
         ],
         'engine': 'modules.raciocinio.gota.engine_gota', 'engine_fn': 'interpretar_gota',
@@ -1249,7 +1237,6 @@ MODULE_SCHEMAS = {
                 _num ('rdw', 'RDW (%)', 10, 30, 0.1, default=None),
                 _num ('wbc', 'Leucócitos (/μL)', 0, 100000, 100, default=None),
                 _num ('plt', 'Plaquetas (/μL)', 0, 1000000, 1000, default=None),
-                _sel ('sexo', 'Sexo', [('masculino','Masculino'),('feminino','Feminino')]),
             ]),
             _block('Reticulócitos / Cinética de Ferro', [
                 _num ('retic_pct', 'Reticulócitos (%)', 0, 30, 0.1, default=None),
@@ -1329,7 +1316,6 @@ MODULE_SCHEMAS = {
                 _bool('extensao_escrotal',  'Extensão escrotal'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 0, 100, 1, 35),
                 _bool('tabagismo', 'Tabagismo'),
                 _bool('medicamentos_culpados', 'Medicamento causador (fenitoína etc.)'),
                 _bool('vacina_recente_ax', 'Vacina recente no braço'),
@@ -1508,8 +1494,6 @@ MODULE_SCHEMAS = {
                       help='Rouquidão persistente > 3 semanas, sobretudo em tabagista, exige rastrear câncer de laringe.'),
             ]),
             _block('Contexto / Alergia', [
-                _num ('idade', 'Idade', 3, 100, 1, 25,
-                      help='Centor: 3-14 anos +1; ≥ 45 anos −1.'),
                 _num ('temperatura_grau', 'Temperatura (°C)', 35.0, 42.0, 0.1, default=None),
                 _bool('atb_recente_30d',      'ATB nos últimos 30 dias'),
                 _bool('alergia_penicilina',   'Alergia à penicilina'),
@@ -1580,7 +1564,6 @@ MODULE_SCHEMAS = {
                 _bool('dor_temporal',    'Dor na região temporal'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 0, 100, 1, 25),
                 _num ('temperatura_grau', 'Temperatura (°C)', 35.0, 42.0, 0.1, default=None),
                 _sel ('lateralidade', 'Lado', [('','—'),('direita','Direita'),('esquerda','Esquerda'),('bilateral','Bilateral')]),
                 _bool('diabetes', 'Diabetes (risco de otite externa maligna)', flag='yellow'),
@@ -1632,7 +1615,6 @@ MODULE_SCHEMAS = {
                 _bool('corticoide_nasal_uso','Já usa corticoide nasal (spray)'),
             ]),
             _block('Contexto / Alergia', [
-                _num ('idade', 'Idade', 0, 100, 1, 30),
                 _bool('atb_recente_30d',      'ATB no último mês'),
                 _bool('imunossuprimido',      'Imunossuprimido', flag='yellow',
                       help='Imunossuprimido + sinusite → atenção para sinusite fúngica invasiva (mucormicose). Emergência.'),
@@ -1708,7 +1690,6 @@ MODULE_SCHEMAS = {
                 _bool('piora_sazonal_ocular','Piora em certas estações'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 0, 100, 1, 30),
                 _sel ('lateralidade', 'Lado', [('','—'),('direito','Direito'),('esquerdo','Esquerdo'),('bilateral','Bilateral')]),
                 _bool('profissional_saude', 'Profissional de saúde (risco conjuntivite viral/surto)'),
                 _num ('pio_mmhg', 'PIO — pressão intraocular (mmHg, se tonômetro)', 0, 80, 1, default=None,
@@ -1750,7 +1731,6 @@ MODULE_SCHEMAS = {
                 _bool('massa_fossa_poplitea',  'Massa em fossa poplítea (Baker?)'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 10, 100, 1, 45),
                 _bool('obesidade_ou_oa_associada','Obesidade / OA associada'),
                 _bool('trabalho_ajoelhado',   'Trabalho ajoelhado'),
             ]),
@@ -1800,7 +1780,6 @@ MODULE_SCHEMAS = {
                 _bool('apprehension_positivo','Apprehension positivo (instabilidade)'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 14, 100, 1, 50),
                 _bool('diabetes',             'Diabetes (risco capsulite)'),
                 _bool('hipotireoidismo',      'Hipotireoidismo'),
             ]),
@@ -1862,7 +1841,6 @@ MODULE_SCHEMAS = {
                 _bool('claudicacao_neurogenica','Claudicação neurogênica (estenose?)'),
             ]),
             _block('Contexto', [
-                _num ('idade', 'Idade', 14, 100, 1, 45),
                 _bool('dor_nova',             'Dor nova (primeiro episódio)'),
                 _bool('bacteremia_recente',   'Bacteremia / infecção recente', flag='yellow'),
             ]),
