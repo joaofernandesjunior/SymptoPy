@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Dados de pacientes (privacidade — NÃO versionar)
+dados_pacientes/
+*_subjetivo_*.json
+*_completo_*.json
+
+# Binários / túnel
+cloudflared.exe
+*.exe
+
+# Saídas geradas
+SymptoPy_Referencia_Clinica.xlsx
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Temporários
+*.tmp
+*.tmp.*
+*.py.tmp.*
+*.log
