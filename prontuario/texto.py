@@ -121,7 +121,9 @@ def _negativas_vertigem(vert: dict) -> str:
 
 
 def gerar_subjetivo_vertigem(admissao):
-    vert = admissao.get("subjetivo_especifico", {}).get("vertigem")
+    # Tenta formato web (dados_por_modulo) e fallback para formato CLI (subjetivo_especifico)
+    vert = (_get_dados_modulo(admissao, 'vertigem', 'organico')
+            or admissao.get("subjetivo_especifico", {}).get("vertigem"))
     if not vert:
         return ""
 
@@ -7498,6 +7500,283 @@ def gerar_subjetivo_sono(admissao):
     return _partes_para_texto(partes)
 
 
+# ------------------------------------------------------------------
+# ORL — Odinofagia / Dor de Garganta — Subjetivo
+# ------------------------------------------------------------------
+
+def gerar_subjetivo_odinofagia(admissao):
+    dados = _get_dados_modulo(admissao, 'odinofagia', 'organico')
+    if not dados:
+        return ''
+    partes = []
+
+    # Achados faríngeos positivos
+    farm = []
+    if dados.get('febre'):
+        temp = dados.get('temperatura_grau')
+        farm.append(f'febre ({temp}°C)' if temp else 'febre')
+    if dados.get('exsudato_amigdaliano'):  farm.append('exsudato amigdaliano')
+    if dados.get('adenopatia_cervical_ant'): farm.append('adenopatia cervical anterior dolorosa')
+    if dados.get('rouquidao'):             farm.append('rouquidão')
+    if dados.get('rouquidao_cronica'):     farm.append('rouquidão > 3 semanas')
+    if farm:
+        partes.append(f'Apresenta: {", ".join(farm)}')
+
+    # Sinais de alarme / abscesso
+    alarme = []
+    if dados.get('trismo'):               alarme.append('trismo')
+    if dados.get('sialorreia'):           alarme.append('sialorreia')
+    if dados.get('voz_batata'):           alarme.append('voz "de batata quente"')
+    if dados.get('desvio_uvula'):         alarme.append('desvio de úvula')
+    if dados.get('disfagia_saliva'):      alarme.append('incapaz de engolir saliva')
+    if dados.get('estridor'):             alarme.append('⚠ ESTRIDOR')
+    if dados.get('dificuldade_respiratoria'): alarme.append('⚠ dificuldade respiratória')
+    if alarme:
+        partes.append(f'Sinais de alarme: {", ".join(alarme)}')
+
+    # Contexto infeccioso
+    ctx = []
+    if dados.get('adenopatia_generalizada'): ctx.append('adenopatia generalizada')
+    if dados.get('esplenomegalia_referida'):  ctx.append('dor em QSE / esplenomegalia')
+    if dados.get('rash_apos_amox'):           ctx.append('rash após amoxicilina')
+    if ctx:
+        partes.append(f'{", ".join(ctx).capitalize()}')
+
+    # Pertinentes negativos
+    neg = []
+    if dados.get('tosse') is False:               neg.append('sem tosse')
+    if dados.get('exsudato_amigdaliano') is False: neg.append('sem exsudato')
+    if dados.get('adenopatia_cervical_ant') is False: neg.append('sem adenopatia cervical')
+    if dados.get('trismo') is False:              neg.append('sem trismo')
+    if dados.get('estridor') is False:            neg.append('sem estridor')
+    if neg:
+        partes.append(f'Nega: {", ".join(neg)}')
+
+    # Alergias
+    if dados.get('alergia_penicilina_grave'):
+        partes.append('Alergia GRAVE à penicilina (anafilaxia/urticária)')
+    elif dados.get('alergia_penicilina'):
+        partes.append('Alergia não grave à penicilina')
+
+    return _partes_para_texto(partes, separador='. ')
+
+
+# ------------------------------------------------------------------
+# ORL — Otalgia / Dor de Ouvido — Subjetivo
+# ------------------------------------------------------------------
+
+def gerar_subjetivo_otalgia(admissao):
+    dados = _get_dados_modulo(admissao, 'otalgia', 'organico')
+    if not dados:
+        return ''
+    partes = []
+
+    # Lateralidade
+    lat = dados.get('lateralidade', '')
+    lat_txt = {'direito': 'direita', 'esquerdo': 'esquerda', 'bilateral': 'bilateral'}.get(lat, '')
+    intro = f'Otalgia {lat_txt}' if lat_txt else 'Otalgia'
+    if dados.get('otalgia_grave'):
+        intro += ' intensa'
+    partes.append(intro)
+
+    # Achados otoscópicos / canal
+    otos = []
+    if dados.get('trago_positivo'):      otos.append('trago positivo')
+    if dados.get('canal_edema'):         otos.append('edema de canal')
+    if dados.get('mt_abaulada'):         otos.append('MT abaulada')
+    if dados.get('mt_hiperemia'):        otos.append('MT hiperemiada')
+    if dados.get('mt_efusao'):           otos.append('efusão retrochimpânica')
+    if dados.get('mt_perfurada'):        otos.append('perfuração timpânica')
+    if dados.get('otorreia_purulenta'):  otos.append('otorreia purulenta')
+    elif dados.get('otorreia'):          otos.append('otorreia')
+    if otos:
+        partes.append(f'Ao exame: {", ".join(otos)}')
+
+    # Sintomas associados
+    assoc = []
+    if dados.get('iras_recente'):        assoc.append('IVAS precedeu')
+    if dados.get('ouvido_cheio'):        assoc.append('ouvido cheio')
+    if dados.get('hipoagusia'):          assoc.append('hipoacusia')
+    if dados.get('banho_piscina'):       assoc.append('exposição a água/piscina')
+    if dados.get('conjuntivite_purulenta'): assoc.append('conjuntivite purulenta')
+    if dados.get('febre'):
+        temp = dados.get('temperatura_grau')
+        assoc.append(f'febre ({temp}°C)' if temp else 'febre')
+    if assoc:
+        partes.append(f'{", ".join(assoc).capitalize()}')
+
+    # Sinais de alarme / mastoidite
+    alarme = []
+    if dados.get('dor_retroauricular'): alarme.append('⚠ dor retroauricular')
+    if dados.get('pavilhao_projetado'): alarme.append('⚠ pavilhão projetado')
+    if dados.get('flutuacao_retroaur'): alarme.append('⚠ flutuação retroauricular')
+    if alarme:
+        partes.append(f'Sinais alarme: {", ".join(alarme)}')
+
+    # DTM
+    dtm = []
+    if dados.get('dor_mastigacao'): dtm.append('dor ao mastigar')
+    if dados.get('bruxismo'):       dtm.append('bruxismo')
+    if dados.get('click_mandibula'): dtm.append('estalido mandibular')
+    if dados.get('dor_matinal'):    dtm.append('dor matinal')
+    if dtm:
+        partes.append(f'DTM: {", ".join(dtm)}')
+
+    # Pertinentes negativos
+    neg = []
+    if dados.get('dor_retroauricular') is False: neg.append('sem dor retroauricular')
+    if dados.get('trago_positivo') is False:     neg.append('trago negativo')
+    if dados.get('otorreia') is False:           neg.append('sem otorreia')
+    if neg:
+        partes.append(f'Nega: {", ".join(neg)}')
+
+    return _partes_para_texto(partes, separador='. ')
+
+
+# ------------------------------------------------------------------
+# ORL — Rinossinusite / Obstrução Nasal — Subjetivo
+# ------------------------------------------------------------------
+
+def gerar_subjetivo_rinossinusite(admissao):
+    dados = _get_dados_modulo(admissao, 'rinossinusite', 'organico')
+    if not dados:
+        return ''
+    partes = []
+
+    # Duração
+    dur = dados.get('duracao_dias_aprox', 0) or 0
+    if dur:
+        partes.append(f'Sintomas nasossinusais há {dur} dias')
+    elif dados.get('duracao_cronica'):
+        partes.append('Rinossinusite crônica (≥ 12 semanas)')
+
+    # Sintomas nasais positivos
+    sxs = []
+    if dados.get('obstrucao_nasal'):        sxs.append('obstrução nasal')
+    if dados.get('rinorreia_purulenta'):    sxs.append('rinorreia purulenta')
+    if dados.get('rinorreia_clara'):        sxs.append('rinorreia clara')
+    if dados.get('rinorreia'):              sxs.append('rinorreia')
+    if dados.get('gotejamento_pos_nasal'):  sxs.append('gotejamento pós-nasal')
+    if dados.get('dor_facial'):             sxs.append('dor/pressão facial')
+    if dados.get('hiposmia_anosmia'):       sxs.append('hiposmia/anosmia')
+    if dados.get('febre'):
+        sxs.append('febre alta' if dados.get('febre_alta') else 'febre')
+    if sxs:
+        partes.append(f'{", ".join(sxs).capitalize()}')
+
+    # Padrão alérgico
+    alergi = []
+    if dados.get('espirros_salva'):         alergi.append('espirros em salva')
+    if dados.get('prurido_nasal_ocular'):   alergi.append('prurido nasal/ocular')
+    if dados.get('piora_sazonal'):          alergi.append('piora sazonal')
+    if dados.get('alergenos_conhecidos'):   alergi.append('alérgenos conhecidos')
+    if alergi:
+        partes.append(f'Padrão alérgico: {", ".join(alergi)}')
+
+    # Curso / piora
+    if dados.get('double_sickening'):
+        partes.append('Double-sickening — piora após período de melhora')
+
+    # Red flags
+    rf = []
+    if dados.get('edema_periorbital'):      rf.append('⚠ edema periorbital')
+    if dados.get('diplopia'):               rf.append('⚠ diplopia')
+    if dados.get('proptose'):               rf.append('⚠ proptose')
+    if dados.get('rigidez_nucal'):          rf.append('⚠ rigidez de nuca')
+    if dados.get('cefaleia_intensa'):       rf.append('⚠ cefaleia intensa')
+    if dados.get('alteracao_consciencia'):  rf.append('⚠ alt. de consciência')
+    if rf:
+        partes.append(f'Red flags: {", ".join(rf)}')
+
+    # Pertinentes negativos
+    neg = []
+    if dados.get('rinorreia_purulenta') is False:  neg.append('sem rinorreia purulenta')
+    if dados.get('dor_facial') is False:           neg.append('sem dor facial')
+    if dados.get('febre') is False:                neg.append('afebril')
+    if dados.get('edema_periorbital') is False:    neg.append('sem edema periorbital')
+    if neg:
+        partes.append(f'Nega: {", ".join(neg)}')
+
+    return _partes_para_texto(partes, separador='. ')
+
+
+# ------------------------------------------------------------------
+# Oftalmo — Olho Vermelho — Subjetivo
+# ------------------------------------------------------------------
+
+def gerar_subjetivo_olho_vermelho(admissao):
+    dados = _get_dados_modulo(admissao, 'olho_vermelho', 'organico')
+    if not dados:
+        return ''
+    partes = []
+
+    # Lateralidade
+    lat = dados.get('lateralidade', '')
+    lat_txt = {'direito': 'direito', 'esquerdo': 'esquerdo', 'bilateral': 'bilateral'}.get(lat, '')
+    intro = f'Olho vermelho {lat_txt}' if lat_txt else 'Olho vermelho'
+    if dados.get('bilateral'):
+        intro = 'Olho vermelho bilateral'
+    partes.append(intro)
+
+    # Sintomas visuais / dor
+    sxs = []
+    if dados.get('dor_intensa'):        sxs.append('dor intensa')
+    elif dados.get('dor_ocular'):       sxs.append('desconforto ocular')
+    if dados.get('visao_turva'):        sxs.append('visão turva')
+    if dados.get('halos_coloridos'):    sxs.append('halos coloridos')
+    if dados.get('fotofobia'):          sxs.append('fotofobia')
+    if dados.get('corpo_estranho_sensacao'): sxs.append('sensação de corpo estranho')
+    if dados.get('prurido_ocular'):     sxs.append('prurido ocular')
+    if sxs:
+        partes.append(f'{", ".join(sxs).capitalize()}')
+
+    # Secreção
+    sec = []
+    if dados.get('secrecao_purulenta'):  sec.append('secreção purulenta')
+    if dados.get('palpebra_grudada'):    sec.append('pálpebra grudada ao acordar')
+    if dados.get('secrecao_aquosa'):     sec.append('secreção aquosa')
+    if dados.get('lacrimejamento'):      sec.append('lacrimejamento')
+    if sec:
+        partes.append(f'{", ".join(sec).capitalize()}')
+
+    # Contexto / epidemiologia
+    ctx = []
+    if dados.get('lente_de_contato'):         ctx.append('usuário de lente de contato')
+    if dados.get('dormiu_com_lente'):         ctx.append('dormiu com lente')
+    if dados.get('pos_cirurgico_ocular'):     ctx.append('pós-cirúrgico ocular')
+    if dados.get('contato_conjuntivite'):     ctx.append('contato com conjuntivite')
+    if dados.get('adenopatia_preauricular'):  ctx.append('adenopatia pré-auricular')
+    if dados.get('rinite_alergica_conhecida'): ctx.append('rinite alérgica conhecida')
+    if ctx:
+        partes.append(f'{", ".join(ctx).capitalize()}')
+
+    # Trauma
+    if dados.get('trauma_quimico'):
+        partes.append('⚠ Trauma químico (lavagem imediata)')
+    if dados.get('trauma_penetrante'):
+        partes.append('⚠ Trauma penetrante')
+
+    # Red flags
+    rf = []
+    if dados.get('ciliary_flush'):          rf.append('⚠ ciliary flush')
+    if dados.get('edema_palpebral') and dados.get('limitacao_motilidade'): rf.append('⚠ limitação de motilidade')
+    if dados.get('proptose'):               rf.append('⚠ proptose')
+    if rf:
+        partes.append(f'Red flags: {", ".join(rf)}')
+
+    # Pertinentes negativos
+    neg = []
+    if dados.get('dor_intensa') is False:        neg.append('sem dor intensa')
+    if dados.get('visao_turva') is False:        neg.append('sem queda de acuidade')
+    if dados.get('halos_coloridos') is False:    neg.append('sem halos')
+    if dados.get('secrecao_purulenta') is False: neg.append('sem secreção purulenta')
+    if dados.get('ciliary_flush') is False:      neg.append('sem ciliary flush')
+    if neg:
+        partes.append(f'Nega: {", ".join(neg)}')
+
+    return _partes_para_texto(partes, separador='. ')
+
+
 SINTOMAS_REGISTRADOS = [
     ("dispneia",  gerar_subjetivo_dispneia,  gerar_objetivo_dispneia),
     ("vertigem",  gerar_subjetivo_vertigem,  gerar_objetivo_vertigem),
@@ -7531,6 +7810,10 @@ SINTOMAS_REGISTRADOS = [
     ("consciencia",  gerar_subjetivo_consciencia,  lambda _: ""),
     ("linfadenopatia", gerar_subjetivo_linfadenopatia, lambda _: ""),
     ("anemia",       gerar_subjetivo_anemia,       lambda _: ""),
+    ("odinofagia",   gerar_subjetivo_odinofagia,   lambda _: ""),
+    ("otalgia",      gerar_subjetivo_otalgia,       lambda _: ""),
+    ("rinossinusite",gerar_subjetivo_rinossinusite, lambda _: ""),
+    ("olho_vermelho",gerar_subjetivo_olho_vermelho, lambda _: ""),
     # ("dor_toracica", gerar_subjetivo_dor_toracica, gerar_objetivo_dor_toracica),
 ]
 

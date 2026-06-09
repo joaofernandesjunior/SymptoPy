@@ -399,6 +399,28 @@ def pre_urinario(d: dict) -> dict:
     return d
 
 
+def pre_vertigem(d: dict) -> dict:
+    """
+    O engine legado de vertigem usa obj["chave"] (acesso direto, não .get()),
+    então garante que TODOS os campos do schema existam com default False.
+    """
+    _campos_bool = (
+        'sensacao_rotatoria', 'desequilibrio', 'sensacao_pre_sincope',
+        'gatilho_mudar_posicao', 'gatilho_espontaneo',
+        'continuo', 'recorrente',
+        'duracao_segundos_minutos', 'duracao_horas', 'duracao_dias',
+        'incapaz_de_andar', 'deficit_focal', 'diplopia', 'disartria',
+        'fraqueza', 'parestesias', 'cefaleia',
+        'hints_preocupante', 'dix_hallpike_positivo',
+        'roll_test_positivo', 'canal_horizontal',
+        'ortostatismo_sugestivo',
+        'zumbido', 'perda_auditiva', 'plenitude_auricular', 'sincope',
+    )
+    for chave in _campos_bool:
+        d.setdefault(chave, False)
+    return d
+
+
 PREPROCESSORS = {
     'odinofagia':    pre_odinofagia,
     'otalgia':       pre_otalgia,
@@ -417,4 +439,5 @@ PREPROCESSORS = {
     'tornozelo_pe':  pre_msk,
     'fibromialgia':  pre_msk,
     'urinario':      pre_urinario,
+    'vertigem':      pre_vertigem,
 }
