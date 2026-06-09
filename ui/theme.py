@@ -186,6 +186,32 @@ div[data-testid="stExpander"] summary {{
     letter-spacing: 1px !important;
 }}
 
+/* ── Interaction alerts box ──────────────────────────────── */
+.interact-box {{
+    background: #1A0D0D;
+    border: 1px solid {RED};
+    border-left: 3px solid {RED};
+    border-radius: 4px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.8rem;
+    font-size: 0.78rem;
+}}
+.interact-box-title {{
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: {RED};
+    font-weight: bold;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+}}
+.interact-alert-item {{
+    color: {YELLOW};
+    padding: 3px 0;
+    border-bottom: 1px solid #2A1010;
+    line-height: 1.4;
+}}
+.interact-alert-item:last-child {{ border-bottom: none; }}
+
 /* ── Divider ─────────────────────────────────────────────── */
 hr {{ border-color: {BORDER} !important; margin: 0.5rem 0 !important; }}
 

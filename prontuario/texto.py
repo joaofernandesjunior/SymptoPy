@@ -228,13 +228,11 @@ _LABEL_VERTIGEM = {
 
 def _gerar_texto_vertigem_analise(resultado):
     """Gera texto de impressão automática para vertigem."""
-    dx     = resultado.get('diagnostico', '')
-    label  = _LABEL_VERTIGEM.get(dx, dx.replace('_', ' ').upper())
-    exame  = 'sim' if resultado.get('necessita_exame') else 'não'
-    conduta_str = _render_conduta_lista(resultado.get('conduta', []))
+    dx    = resultado.get('diagnostico', '')
+    label = _LABEL_VERTIGEM.get(dx, dx.replace('_', ' ').upper())
+    exame = 'sim' if resultado.get('necessita_exame') else 'não'
     return (
         f"Hipótese principal: {label}. "
-        f"{conduta_str}\n"
         f"Necessita exame complementar: {exame}."
     )
 
@@ -360,11 +358,9 @@ def _gerar_texto_cefaleia_analise(subj, resultado):
             partes.append(texto)
 
     texto_base = ", ".join(partes) + "."
-    conduta_str = _render_conduta_lista(resultado['conduta'])
     return (
         f"{texto_base} "
         f"Hipótese principal: {resultado['diagnostico']}. "
-        f"{conduta_str}\n"
         f"Necessita exame complementar: {'sim' if resultado['necessita_exame'] else 'não'}."
     )
 
@@ -970,36 +966,6 @@ def _gerar_texto_coluna_analise(resultado, dados):
             "priorizar abordagem multimodal (exercício aeróbico, psicologia, neuromoduladores)."
         )
 
-    # Conduta — exercícios domiciliares
-    _ex_kw  = ["McKenzie", "Williams", "Bird-dog", "Dead bug", "Caminhada",
-               "Pedalinho", "Joelho ao peito", "Inclinação pélvica",
-               "Bicicleta", "Alongamento", "Extensão em pronação"]
-    _far_kw = ["AINE", "Ibuprofeno", "Naproxeno", "Paracetamol", "Etoricoxibe",
-               "Amitriptilina", "Gabapentina", "Pregabalina", "Duloxetina",
-               "Ciclobenzaprina", "Tizanidina", "neuropático"]
-    _edu_kw = ["REPOUSO", "Ergonomia", "ergonomia", "Retorno", "retorno",
-               "dormir", "Dormir", "Orienta", "orienta"]
-
-    conduta = h.get("conduta", [])
-    exercs  = [c for c in conduta if any(kw in c for kw in _ex_kw)]
-    farms   = [c for c in conduta if any(kw in c for kw in _far_kw)]
-    edus    = [c for c in conduta if any(kw in c for kw in _edu_kw)]
-
-    if exercs:
-        linhas.append("Exercícios domiciliares recomendados: " + " ".join(exercs[:3]))
-    if farms:
-        linhas.append("Conduta farmacológica: " + " ".join(farms[:4]))
-    if edus:
-        linhas.append("Orientações: " + " ".join(edus[:2]))
-    if h.get("fisioterapia"):
-        linhas.append(f"Fisioterapia: {h['fisioterapia']}")
-    if h.get("imagem"):
-        linhas.append(f"Imagem: {h['imagem']}")
-    if h.get("encaminhar"):
-        linhas.append(f"Encaminhamento: {h['encaminhar']}")
-    if alertas:
-        linhas.append(f"Alertas farmacológicos: {alertas}")
-
     return "\n\n".join(linhas)
 
 
@@ -1148,8 +1114,6 @@ def _gerar_texto_fibromialgia_analise(resultado, dados):
             f"Flags inflamatórios presentes — investigar causa secundária antes de confirmar FM. "
             f"Scores obtidos: {score_str}."
         )
-        if resultado.get("encaminhar"):
-            linhas.append(f"Conduta: {resultado['encaminhar']}")
         return "\n".join(linhas)
 
     # ── Scores + status diagnóstico ─────────────────────────────────
@@ -1167,29 +1131,9 @@ def _gerar_texto_fibromialgia_analise(resultado, dados):
         if faltando:
             linhas.append("Critérios faltando: " + "; ".join(faltando) + ".")
 
-    # ── Conduta base ────────────────────────────────────────────────
-    if conduta.get("base"):
-        linhas.append("Base universal: " + " | ".join(conduta["base"][:2]) + ".")
-
-    # ── Conduta tailored ────────────────────────────────────────────
-    if conduta.get("nao_farmacologico"):
-        nf = "; ".join(conduta["nao_farmacologico"])
-        linhas.append(f"Não-farmacológico (foco {sintoma}): {nf}.")
-
-    if conduta.get("farmacologico"):
-        farm = "; ".join(conduta["farmacologico"])
-        linhas.append(f"Farmacológico: {farm}.")
-
-    if conduta.get("nota_eficacia"):
-        linhas.append(f"Evidência: {conduta['nota_eficacia']}")
-
-    # ── Alerta AINE/opioide ─────────────────────────────────────────
+    # ── Alerta AINE/opioide (implicação diagnóstica) ─────────────────
     if conduta.get("alerta"):
         linhas.append(conduta["alerta"])
-
-    # ── Encaminhamento ───────────────────────────────────────────────
-    if resultado.get("encaminhar"):
-        linhas.append(f"Encaminhamento: {resultado['encaminhar']}")
 
     return "\n\n".join(linhas)
 
@@ -1345,18 +1289,6 @@ def _gerar_texto_quadril_analise(resultado, dados):
         linha_dx += ' Excluídos: ' + '; '.join(exclusao) + '.'
     linhas.append(linha_dx)
 
-    # ── Conduta ─────────────────────────────────────────────────────
-    if h.get('base'):
-        linhas.append('Não-farmacológico: ' + ' | '.join(h['base'][:2]) + '.')
-    if h.get('farmacologico'):
-        linhas.append('Farmacológico: ' + ' | '.join(h['farmacologico'][:2]) + '.')
-    if h.get('fisioterapia'):
-        linhas.append(f"Fisioterapia: {h['fisioterapia']}.")
-    if h.get('imagem'):
-        linhas.append(f"Imagem: {h['imagem']}.")
-    if h.get('encaminhar'):
-        linhas.append(f"Encaminhamento: {h['encaminhar']}.")
-
     return '\n\n'.join(linhas)
 
 
@@ -1502,20 +1434,11 @@ def _gerar_texto_tornozelo_pe_analise(resultado, dados):
         achados = resultado.get('achados_positivos', [])
         linha = 'Ottawa positivo — RX indicado. Achados: ' + '; '.join(achados[:3]) + '.'
         linhas.append(linha)
-        conduta = resultado.get('conduta', [])
-        if conduta:
-            linhas.append('Conduta: ' + ' | '.join(conduta[:2]) + '.')
         return '\n\n'.join(linhas)
 
     if categoria == 'entorse_tornozelo':
         achados = resultado.get('achados_positivos', [])
         linhas.append('Ottawa negativo — fratura improvável. ' + '; '.join(achados[:3]) + '.')
-        nf = resultado.get('conduta_nao_farmacologica', [])
-        if nf:
-            linhas.append('Não-farmacológico: ' + ' | '.join(nf[:2]) + '.')
-        farm = resultado.get('farmacologico', [])
-        if farm:
-            linhas.append('Farmacológico: ' + farm[0] + '.')
         alerta_inst = resultado.get('alerta_instabilidade', '')
         if alerta_inst:
             linhas.append(f"Alerta: {alerta_inst}")
@@ -1542,25 +1465,6 @@ def _gerar_texto_tornozelo_pe_analise(resultado, dados):
     alerta_csi = h.get('alerta_csi', '')
     if alerta_csi:
         linhas.append(f"ALERTA: {alerta_csi}")
-
-    nf = h.get('conduta_nao_farmacologica', [])
-    if nf:
-        linhas.append('Não-farmacológico: ' + ' | '.join(nf[:2]) + '.')
-    farm = h.get('farmacologico', [])
-    if farm:
-        linhas.append('Farmacológico: ' + farm[0] + '.')
-    prog = h.get('prognostico', '')
-    if prog:
-        linhas.append(prog)
-    ft = h.get('fisioterapia', '')
-    if ft:
-        linhas.append(f"Fisioterapia: {ft}.")
-    enc = h.get('encaminhar', '')
-    if enc:
-        linhas.append(f"Encaminhamento: {enc}.")
-    img = h.get('imagem', '')
-    if img:
-        linhas.append(f"Imagem: {img}.")
 
     return '\n\n'.join(linhas)
 
@@ -1723,15 +1627,6 @@ def _gerar_texto_mao_punho_analise(resultado, dados):
             f"(força {resultado.get('forca')}, score {resultado.get('score')}). "
             f"Achados: {pos_str}."
         )
-        nf = resultado.get('conduta_nao_farmacologica', [])
-        if nf:
-            linhas.append('Conduta: ' + ' | '.join(nf[:2]) + '.')
-        enc = resultado.get('encaminhar', '')
-        if enc:
-            linhas.append(f"Encaminhamento: {enc}.")
-        img = resultado.get('imagem', '')
-        if img:
-            linhas.append(f"Imagem: {img}.")
         return '\n\n'.join(linhas)
 
     if not provaveis and not possiveis:
@@ -1761,24 +1656,6 @@ def _gerar_texto_mao_punho_analise(resultado, dados):
     alerta_ulnar = resultado.get('alerta_ulnar', '')
     if alerta_ulnar:
         linhas.append(f"Alerta: {alerta_ulnar}")
-
-    nf = h.get('conduta_nao_farmacologica', [])
-    if nf:
-        linhas.append('Não-farmacológico: ' + ' | '.join(nf[:2]) + '.')
-    farm = h.get('farmacologico', [])
-    if farm:
-        linhas.append('Farmacológico: ' + farm[0] + '.')
-
-    workup = h.get('workup', [])
-    if workup:
-        linhas.append('Exames: ' + ' | '.join(workup[:3]) + '.')
-
-    enc = h.get('encaminhar', '')
-    if enc:
-        linhas.append(f"Encaminhamento: {enc}.")
-    img = h.get('imagem', '')
-    if img:
-        linhas.append(f"Imagem: {img}.")
 
     return '\n\n'.join(linhas)
 

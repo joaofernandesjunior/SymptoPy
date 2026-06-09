@@ -1068,7 +1068,7 @@ def _resultado_inespecifico(dados):
 # PONTO DE ENTRADA PRINCIPAL
 # =============================================================================
 
-def interpretar_queixa_gastro(dados: dict) -> dict:
+def _interpretar_gastro_core(dados: dict) -> dict:
     """
     Motor principal de raciocínio clínico — Dor Abdominal / Queixas GI.
 
@@ -1137,3 +1137,64 @@ def interpretar_queixa_gastro(dados: dict) -> dict:
 
     # 13. Inespecífico
     return _resultado_inespecifico(dados)
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_gastro(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat = resultado.get('categoria', '')
+
+    # C. diff: ATB recente + diarreia — não usar loperamida
+    if dados.get('alerta_cdiff'):
+        alertas.append(
+            '⚠️ ATB recente + diarreia → solicitar toxina C. difficile nas fezes; '
+            'NÃO usar loperamida até excluir colite por C. diff'
+        )
+
+    # IBD: AINE absolutamente proibido
+    if cat == 'gastro_ibd_suspeita' and dados.get('uso_aine'):
+        alertas.append(
+            '🔴 VETO AINE / AAS em curso — suspender imediatamente; '
+            'pode desencadear flare grave de DII'
+        )
+
+    # Celíaca: não retirar glúten antes do exame
+    if cat == 'gastro_celiaca_suspeita':
+        alertas.append(
+            '⚠️ NÃO retirar glúten antes de colher o anti-tTG IgA — '
+            'dieta sem glúten gera falso-negativo garantido'
+        )
+
+    # DIP: retorno 72h é obrigatório
+    if cat == 'gastro_dip':
+        alertas.append(
+            '⚠️ DIP: retorno obrigatório em 72h — sem melhora = internação + ATB IV. '
+            'Parceiro(s) deve(m) ser tratado(s) concomitantemente'
+        )
+
+    # Metronidazol: álcool proibido durante e 48h após
+    rxs = resultado.get('prescricoes_estruturadas', [])
+    if any('etronidazol' in rx.get('medicamento', '') for rx in rxs):
+        alertas.append(
+            '⚠️ Metronidazol: PROIBIR álcool durante o tratamento e por 48h após '
+            '(reação antabuse: náusea, rubor, taquicardia)'
+        )
+
+    # Dispepsia + AINE em uso → risco de PUD
+    if cat.startswith('gastro_dispepsia') and dados.get('uso_aine'):
+        alertas.append(
+            '⚠️ AINE em uso → fator de risco para PUD/gastrite. '
+            'Suspender AINE ou adicionar IBP protetor enquanto em uso'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def interpretar_queixa_gastro(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_gastro(_interpretar_gastro_core(dados), dados)

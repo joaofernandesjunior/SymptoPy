@@ -557,6 +557,15 @@ def _sintomaticos_tosse(dados):
             'nota': 'PILAR PRINCIPAL é a HIDRATAÇÃO FLUIDA (≥ 2 L/dia) — o mucolítico é adjuvante. '
                     'Alternativa: Ambroxol 30 mg VO 8/8h. NÃO associar com antitussígeno (retém secreção).',
         })
+        rx.append({
+            'linha':       'Opção noturna — antitussígeno (se fase seca / tosse noturna incomodativa)',
+            'medicamento': 'Levodropropizina',
+            'prescricoes': [{'quantidade': '1 frasco', 'unidade': '60 mg (6 mg/mL)',
+                             'posologia': 'Tomar 10 mL (60 mg) VO ao deitar, por até 5 dias.'}],
+            'nota': 'Usar APENAS se a tosse seca noturna estiver atrapalhando o sono — '
+                    'NÃO associar com acetilcisteína/ambroxol na mesma dose (risco de retenção de secreção). '
+                    'Antitussígeno periférico (levodropropizina) — alternativa central: Dextrometorfano 15–30 mg.',
+        })
     else:
         rx.append({
             'linha':       'Sintomático — antitussígeno (tosse seca irritativa)',

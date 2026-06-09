@@ -160,7 +160,7 @@ def _reversao_rx(d) -> list:
 # ENGINE PRINCIPAL
 # =============================================================================
 
-def analisar_hemorragia(dados: dict) -> dict:
+def _analisar_hemorragia_core(dados: dict) -> dict:
     d    = dados
     ramo = d.get('ramo', 'ugib')
     si   = _shock_index(d)
@@ -619,3 +619,52 @@ def _etiologia_lgib(d) -> dict:
         'enc': 'Colonoscopia eletiva',
         'rac': 'Sem etiologia específica identificada — colonoscopia indicada.',
     }
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_hemorragia(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat  = resultado.get('categoria', '')
+    ramo = resultado.get('ramo', 'ugib')
+
+    # Anticoagulado: gestão cuidadosa — não suspender sem avaliação
+    if dados.get('anticoagulado'):
+        alertas.append(
+            '⚠️ Anticoagulante em uso: NÃO suspender sem avaliação risco/benefício — '
+            'FA / prótese valvar têm alto risco tromboembólico; '
+            'reiniciar em ≤ 7 dias após hemostasia confirmada (ACG 2023)'
+        )
+
+    # Cirrose: ceftriaxona IV ANTES da endoscopia (reduz mortalidade)
+    if dados.get('cirrose') and ramo == 'ugib':
+        alertas.append(
+            '⚠️ Cirrose: ceftriaxona 1g IV IMEDIATAMENTE — '
+            'iniciar ANTES da endoscopia, não depois; reduz mortalidade em HDA variceal'
+        )
+
+    # AINE/AAS: AAS cardioproteto tem manejo diferente do AINE analgésico
+    if dados.get('aine_asa') and ramo == 'ugib':
+        alertas.append(
+            '⚠️ AINE/AAS em uso: suspender AINE analgésico; '
+            'AAS cardioproteto (IAM/AVC prévio) → manter ou reiniciar em 3–5 dias '
+            'após hemostasia (risco CV supera risco de ressangramento)'
+        )
+
+    # Tranexâmico: contraindicado em hemorragia GI
+    if cat in ('hd_ugib_nao_variceal', 'hd_ugib_gbs_baixo', 'hd_ugib_instavel'):
+        alertas.append(
+            '⚠️ Tranexâmico NÃO recomendado em HDA (HALT-IT 2020: não reduz mortalidade, '
+            'aumenta trombose venosa) — NÃO prescrever'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def analisar_hemorragia(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_hemorragia(_analisar_hemorragia_core(dados), dados)

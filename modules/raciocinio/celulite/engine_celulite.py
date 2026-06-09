@@ -182,7 +182,7 @@ def _atb_iv(d) -> list:
 # ENGINE PRINCIPAL
 # =============================================================================
 
-def analisar_celulite(dados: dict) -> dict:
+def _analisar_celulite_core(dados: dict) -> dict:
     d = dados
     sirs = _sirs_count(d)
     lrinec = _lrinec(d)
@@ -435,3 +435,55 @@ def _loc_label(d) -> str:
         'outro':           'outro sítio',
     }
     return _MAP.get(d.get('localizacao', ''), 'localização')
+
+
+# =============================================================================
+# PENTE FINO — alertas de segurança transversais
+# =============================================================================
+
+def _enriquecer_celulite(resultado: dict, dados: dict) -> dict:
+    """Adiciona alertas_seguranca ao resultado (renderizados no topo do #Plano)."""
+    alertas = []
+    cat    = resultado.get('categoria', '')
+    lrinec = resultado.get('lrinec', 0) or 0
+
+    # Uso de drogas IV: bacteremia/endocardite por S. aureus
+    if dados.get('uso_drogas_iv'):
+        alertas.append(
+            '⚠️ Uso de drogas IV → risco de bacteremia + endocardite por S. aureus: '
+            'hemoculturas seriadas; ecocardiograma se febre persistente > 72h ou bacteremia confirmada'
+        )
+
+    # Pé diabético / diabetes: cobertura gram-negativo + Pseudomonas
+    if dados.get('pe_diabetico') or (dados.get('diabetes') and
+            dados.get('localizacao') in ('pe', 'mmii_unilateral')):
+        alertas.append(
+            '⚠️ Pé diabético: cobertura gram-negativa ampliada — '
+            'amoxicilina-clavulanato (leve) ou ciprofloxacino + clindamicina (grave); '
+            'avaliar isquemia e neuropatia'
+        )
+
+    # LRINEC < 6 com sinais clínicos de fasciite — baixa sensibilidade do score
+    sinais_fasciite = any(dados.get(k) for k in
+                          ('crepitacao', 'necrose', 'dor_desproporcional', 'bolhas_hemorragicas'))
+    if sinais_fasciite and cat != 'cel_fasciite' and lrinec < 6:
+        alertas.append(
+            '⚠️ Sinais clínicos de fasciite com LRINEC < 6: score tem sensibilidade de 43–68% — '
+            'NÃO exclui fasciite; reavaliação seriada a cada 4–6h; cirurgia guiada pela clínica'
+        )
+
+    # Mordedura / imersão: patógenos especiais
+    if dados.get('mordedura_animal'):
+        alertas.append(
+            '⚠️ Mordedura / imersão em água: cobertura para Pasteurella (animal), '
+            'Aeromonas / Vibrio (água doce/salgada) → amoxicilina-clavulanato oral; '
+            'notificar raiva se mordedura de cão/gato/morcego'
+        )
+
+    resultado['alertas_seguranca'] = alertas
+    return resultado
+
+
+def analisar_celulite(dados: dict) -> dict:
+    """Ponto de entrada público — core + pente fino."""
+    return _enriquecer_celulite(_analisar_celulite_core(dados), dados)

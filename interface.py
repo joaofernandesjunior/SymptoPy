@@ -13,6 +13,8 @@ from ui.theme import CSS
 from ui.schemas import MODULE_SCHEMAS, KEYWORD_TO_SCHEMA
 from ui.engine_bridge import run_engine
 from ui.prontuario_builder import build_full_soap
+from modules.transversal.interacoes import verificar_interacoes
+from modules.transversal.perfil_paciente import PERFIL_VAZIO
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -75,6 +77,16 @@ def _init_state():
         'form_data': {},
         'resultado': None,
         'show_modal': False,
+        'perfil_farmaco': {
+            'egfr': None,
+            'anticoagulado': False,
+            'tipo_anticoagulante': None,
+            'isrs_em_uso': False,
+            'imao_em_uso': False,
+            'antipsicótico_em_uso': False,
+            'qt_longo_conhecido': False,
+            'hepatopatia': False,
+        },
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -293,6 +305,39 @@ with st.expander('▤  DADOS COMPLETOS DO PACIENTE  (ocupação · procedência 
     P['medicacoes'] = st.text_area('Medicações de uso contínuo', value=P['medicacoes'],
                                    placeholder='losartana 50mg 1-0-1, metformina 850mg 1-0-1', height=70)
 
+PF = st.session_state.perfil_farmaco
+with st.expander('💊  PERFIL FARMACOLÓGICO  (comorbidades que afetam prescrição)'):
+    pf1, pf2 = st.columns(2)
+    with pf1:
+        egfr_raw = st.number_input(
+            'eGFR (mL/min/1.73m²) — 0 = não informado',
+            min_value=0.0, max_value=200.0,
+            value=float(PF['egfr']) if PF['egfr'] is not None else 0.0,
+            step=1.0, key='pf_egfr')
+        PF['egfr'] = egfr_raw if egfr_raw > 0 else None
+        PF['hepatopatia'] = st.checkbox(
+            'Hepatopatia (cirrose / hepatite crônica)', value=PF['hepatopatia'], key='pf_hepato')
+        PF['qt_longo_conhecido'] = st.checkbox(
+            'QT longo conhecido', value=PF['qt_longo_conhecido'], key='pf_qt')
+    with pf2:
+        PF['anticoagulado'] = st.checkbox(
+            'Anticoagulado', value=PF['anticoagulado'], key='pf_anticoag')
+        if PF['anticoagulado']:
+            tipo_opts = ['warfarina', 'doac']
+            tipo_lbl  = ['Warfarina / acenocumarol', 'DOAC (apixabana, rivaroxabana...)']
+            cur_tipo  = PF.get('tipo_anticoagulante') or 'warfarina'
+            idx_tipo  = tipo_opts.index(cur_tipo) if cur_tipo in tipo_opts else 0
+            sel_tipo  = st.selectbox('Tipo', tipo_lbl, index=idx_tipo, key='pf_tipo_anticoag')
+            PF['tipo_anticoagulante'] = tipo_opts[tipo_lbl.index(sel_tipo)]
+        else:
+            PF['tipo_anticoagulante'] = None
+        PF['isrs_em_uso'] = st.checkbox(
+            'ISRS em uso', value=PF['isrs_em_uso'], key='pf_isrs')
+        PF['imao_em_uso'] = st.checkbox(
+            'IMAO em uso', value=PF['imao_em_uso'], key='pf_imao')
+        PF['antipsicótico_em_uso'] = st.checkbox(
+            'Antipsicótico em uso', value=PF['antipsicótico_em_uso'], key='pf_antipsic')
+
 st.markdown('<hr>', unsafe_allow_html=True)
 
 
@@ -375,8 +420,12 @@ with col_left:
         if st.button('⚡  ANALISAR  →  GERAR SOAP COMPLETO', use_container_width=True, type='primary'):
             with st.spinner('Processando...'):
                 _merge_vitals(form, C)
-                st.session_state.resultado = run_engine(schema_key, form, {
+                resultado = run_engine(schema_key, form, {
                     **P, 'idade': P['idade'], 'sexo': P['sexo']})
+                perfil = {**PERFIL_VAZIO, **st.session_state.perfil_farmaco,
+                          'idade': P['idade']}
+                resultado = verificar_interacoes(resultado, perfil)
+                st.session_state.resultado = resultado
             st.rerun()
 
 
@@ -411,6 +460,17 @@ with col_right:
                 st.markdown(f'<div class="badge {cls}" style="font-size:0.85rem;'
                             f'padding:4px 12px;margin-bottom:8px;">{txt}</div>',
                             unsafe_allow_html=True)
+
+            # Alertas de segurança em destaque
+            alertas = resultado.get('alertas_seguranca', [])
+            if alertas:
+                items_html = ''.join(
+                    f'<div class="interact-alert-item">⚠ {a}</div>' for a in alertas)
+                st.markdown(
+                    f'<div class="interact-box">'
+                    f'<div class="interact-box-title">Alertas de Segurança</div>'
+                    f'{items_html}</div>',
+                    unsafe_allow_html=True)
 
             # Colorize
             html = soap_txt
