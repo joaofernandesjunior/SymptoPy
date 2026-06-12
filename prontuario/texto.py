@@ -7849,6 +7849,56 @@ def _analise_cha(resultado: dict) -> str:
     return '\n'.join(l for l in linhas if l)
 
 
+def gerar_subjetivo_disglicemia(admissao):
+    dados = _get_dados_modulo(admissao, 'disglicemia', 'organico')
+    if not dados:
+        return ''
+    partes = []
+    gli = dados.get('glicemia')
+    if gli:
+        partes.append(f'Glicemia capilar {gli:.0f} mg/dL' if isinstance(gli, float)
+                      else f'Glicemia capilar {gli} mg/dL')
+    pos = []
+    if dados.get('rebaixamento'):                 pos.append('🔴 rebaixamento de consciência')
+    if dados.get('sintomas_neuroglicopenicos'):   pos.append('sintomas neuroglicopênicos')
+    if dados.get('cetonemia_cetonuria'):          pos.append('cetonemia/cetonúria')
+    if pos:
+        partes.append('Apresenta: ' + ', '.join(pos))
+    ctx = []
+    if dados.get('uso_sulfonilureia'):   ctx.append('uso de sulfonilureia')
+    if dados.get('etilista_desnutrido'): ctx.append('etilista/desnutrido')
+    if ctx:
+        partes.append('Contexto: ' + ', '.join(ctx))
+    return _partes_para_texto(partes, separador='. ')
+
+
+def gerar_subjetivo_anafilaxia(admissao):
+    dados = _get_dados_modulo(admissao, 'anafilaxia', 'organico')
+    if not dados:
+        return ''
+    partes = []
+    sis = []
+    if dados.get('pele_mucosa'):                sis.append('pele/mucosa (urticária/angioedema/flushing)')
+    if dados.get('comprometimento_respiratorio'): sis.append('🔴 respiratório')
+    if dados.get('hipotensao_sincope'):         sis.append('🔴 cardiovascular (hipotensão/síncope)')
+    if dados.get('sintomas_gi_graves'):         sis.append('GI grave')
+    if sis:
+        partes.append('Sistemas: ' + ', '.join(sis))
+    if dados.get('exposicao_alergeno'):
+        partes.append('Exposição a alérgeno conhecido/provável')
+    if dados.get('angioedema_isolado'):
+        partes.append('Angioedema isolado' + (' em uso de IECA' if dados.get('uso_ieca') else ''))
+    if dados.get('uso_betabloqueador'):
+        partes.append('Em uso de betabloqueador')
+    return _partes_para_texto(partes, separador='. ')
+
+
+def _analise_emergencia_generica(resultado: dict) -> str:
+    """#Análise — diagnóstico + raciocínio (disglicemia, anafilaxia)."""
+    linhas = [resultado.get('diagnostico', ''), resultado.get('raciocinio', '')]
+    return '\n'.join(l for l in linhas if l)
+
+
 def _plano_tep(resultado: dict) -> str:
     """#Plano A/B — genérico para módulos de emergência (TEP, dor torácica…)."""
     linhas = []
@@ -8187,6 +8237,8 @@ SINTOMAS_REGISTRADOS = [
     ("tep",          gerar_subjetivo_tep,          lambda _: ""),
     ("dor_toracica", gerar_subjetivo_dor_toracica, lambda _: ""),
     ("crise_hipertensiva", gerar_subjetivo_crise_hipertensiva, lambda _: ""),
+    ("disglicemia",  gerar_subjetivo_disglicemia,  lambda _: ""),
+    ("anafilaxia",   gerar_subjetivo_anafilaxia,   lambda _: ""),
     ("odinofagia",   gerar_subjetivo_odinofagia,   lambda _: ""),
     ("otalgia",      gerar_subjetivo_otalgia,       lambda _: ""),
     ("rinossinusite",gerar_subjetivo_rinossinusite, lambda _: ""),
@@ -8636,6 +8688,20 @@ _CID_MAP = {
     'cha_eclampsia':                'O15.9',  # Eclâmpsia
     'cha_adrenergica':              'F14.0',  # Intoxicação por cocaína (crise adrenérgica)
 
+    # ── Disglicemia ──────────────────────────────────────────────────────────
+    'hipoglicemia':           'E16.2',  # Hipoglicemia não especificada
+    'cad':                    'E10.1',  # DM com cetoacidose
+    'ehh':                    'E11.0',  # DM2 com coma hiperosmolar
+    'hiperglicemia_simples':  'R73.9',  # Hiperglicemia não especificada
+    'glicemia_normal':        'R73.9',
+    'disglicemia_sem_dado':   'R73.9',
+
+    # ── Anafilaxia / alergia ─────────────────────────────────────────────────
+    'anafilaxia':                  'T78.2',  # Choque anafilático não especificado
+    'angioedema_ieca':             'T88.6',  # Reação adversa a droga (angioedema por IECA)
+    'urticaria_angioedema':        'T78.3',  # Angioedema / urticária
+    'reacao_alergica_indefinida':  'T78.4',  # Alergia não especificada
+
     # ── Dor torácica ─────────────────────────────────────────────────────────
     'dtx_stemi':                    'I21.9',  # IAM com supra (não especificado)
     'dtx_sca_alto_risco':           'I20.0',  # Angina instável / NSTEMI
@@ -8908,6 +8974,8 @@ def gerar_texto_prontuario(paciente, admissao):
             txt = _analise_dtx(resultado)
         elif resultado.get('tipo') == 'crise_hipertensiva':
             txt = _analise_cha(resultado)
+        elif resultado.get('tipo') in ('disglicemia', 'anafilaxia'):
+            txt = _analise_emergencia_generica(resultado)
         elif categoria in _ANEMIA_CATS:
             txt = _analise_anemia(resultado)
         elif categoria in _SONO_CATS:
@@ -8954,8 +9022,9 @@ def gerar_texto_prontuario(paciente, admissao):
                 linhas.append(txt)
                 plano_gerado = True
 
-        # Emergências — planos A/B (TEP, dor torácica, crise hipertensiva)
-        elif resultado.get('tipo') in ('tep', 'dor_toracica', 'crise_hipertensiva'):
+        # Emergências — planos A/B (TEP, dor torácica, crise hipertensiva, disglicemia, anafilaxia)
+        elif resultado.get('tipo') in ('tep', 'dor_toracica', 'crise_hipertensiva',
+                                       'disglicemia', 'anafilaxia'):
             txt = _plano_tep(resultado)
             if txt:
                 linhas.append(txt)

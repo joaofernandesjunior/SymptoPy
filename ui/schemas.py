@@ -2445,6 +2445,59 @@ MODULE_SCHEMAS = {
         'engine_fn': 'interpretar_crise_hipertensiva',
     },
 
+    # ── DISGLICEMIA — hipo / CAD / EHH ───────────────────────────────────────
+    'disglicemia': {
+        'label': 'Disglicemia (hipo / CAD / EHH)', 'sistema': 'Emergência',
+        'blocks': [
+            _block('Glicemia capilar (obrigatória)', [
+                _num('glicemia', 'Glicemia capilar (mg/dL)', 10, 1500, 10, None),
+            ]),
+            _block('Nível de consciência', [
+                _bool('rebaixamento', '🔴 Rebaixamento / não deglute com segurança', flag='red'),
+                _bool('sintomas_neuroglicopenicos', 'Sintomas neuroglicopênicos (confusão, sudorese, tremor)'),
+            ]),
+            _block('Se HIPERglicemia — sinais de CAD/EHH', [
+                _num('ph', 'pH (gasometria, se disponível)', 6.5, 7.7, 0.01, None),
+                _num('hco3', 'Bicarbonato (mEq/L)', 1, 40, 1, None),
+                _num('osmolaridade', 'Osmolaridade (mOsm/kg, se calculada)', 250, 400, 1, None),
+                _num('potassio', 'Potássio (mEq/L)', 1.5, 8.0, 0.1, None),
+                _bool('cetonemia_cetonuria', 'Cetonemia / cetonúria positiva'),
+            ]),
+            _block('Contexto', [
+                _bool('uso_sulfonilureia',  'Uso de sulfonilureia (glibenclamida/gliclazida)'),
+                _bool('etilista_desnutrido','Etilista / desnutrido (risco Wernicke)'),
+            ]),
+        ],
+        'engine': 'modules.raciocinio.emergencias.engine_disglicemia',
+        'engine_fn': 'interpretar_disglicemia',
+    },
+
+    # ── ANAFILAXIA / reação alérgica aguda ───────────────────────────────────
+    'anafilaxia': {
+        'label': 'Anafilaxia / Reação Alérgica', 'sistema': 'Emergência',
+        'blocks': [
+            _block('Sistemas envolvidos (critério WAO)', [
+                _bool('pele_mucosa',               'Pele/mucosa: urticária, prurido, angioedema, flushing'),
+                _bool('comprometimento_respiratorio','🔴 Respiratório: dispneia, sibilo, estridor, hipoxemia', flag='red'),
+                _bool('hipotensao_sincope',        '🔴 Cardiovascular: hipotensão, síncope, colapso', flag='red'),
+                _bool('sintomas_gi_graves',        'GI grave: vômitos, cólica intensa'),
+            ]),
+            _block('Exposição', [
+                _bool('exposicao_alergeno', 'Exposição a alérgeno conhecido/provável (alimento, droga, ferroada)'),
+            ]),
+            _block('Angioedema isolado', [
+                _bool('angioedema_isolado', 'Angioedema SEM urticária (lábios/língua/glote)'),
+                _bool('uso_ieca',           'Uso de IECA (captopril, enalapril...)', depends_on='angioedema_isolado'),
+            ]),
+            _block('Modificadores', [
+                _bool('uso_betabloqueador', 'Uso de betabloqueador (resposta reduzida à adrenalina)'),
+                _bool('urticaria_extensa',  'Urticária extensa (se sem critério de anafilaxia)'),
+            ]),
+        ],
+        'engine': 'modules.raciocinio.emergencias.engine_anafilaxia',
+        'engine_fn': 'interpretar_anafilaxia',
+    },
+
 }
 
 # ── Mapeamento de keywords do dispatcher → schema ─────────────────────────
@@ -2461,6 +2514,13 @@ KEYWORD_TO_SCHEMA = {
     'pressao alta': 'crise_hipertensiva', 'crise hipertensiva': 'crise_hipertensiva',
     'pa elevada': 'crise_hipertensiva', 'hipertensao': 'crise_hipertensiva',
     'urgencia hipertensiva': 'crise_hipertensiva', 'emergencia hipertensiva': 'crise_hipertensiva',
+    # disglicemia
+    'hipoglicemia': 'disglicemia', 'hiperglicemia': 'disglicemia',
+    'cetoacidose': 'disglicemia', 'cad': 'disglicemia', 'ehh': 'disglicemia',
+    'glicemia alta': 'disglicemia', 'glicemia baixa': 'disglicemia', 'diabetes descompensado': 'disglicemia',
+    # anafilaxia
+    'anafilaxia': 'anafilaxia', 'reacao alergica': 'anafilaxia', 'alergia': 'anafilaxia',
+    'urticaria': 'anafilaxia', 'angioedema': 'anafilaxia', 'choque anafilatico': 'anafilaxia',
     # celulite
     'celulite': 'celulite', 'erisipela': 'celulite', 'fasciite': 'celulite',
     'abscesso': 'celulite', 'infeccao de pele': 'celulite', 'linfangite': 'celulite',
