@@ -389,6 +389,12 @@ with col_left:
         with v3:
             C['fr'] = st.text_input('FR (ipm)', value=C['fr'], placeholder='16')
             C['glicemia'] = st.text_input('HGT (mg/dL)', value=C['glicemia'], placeholder='90')
+        n1, n2 = st.columns(2)
+        with n1:
+            C['o2_suplementar'] = st.checkbox('O₂ suplementar', value=C.get('o2_suplementar', False))
+        with n2:
+            C['consciencia_alterada'] = st.checkbox('Consciência alterada (ACVPU < A)',
+                                                    value=C.get('consciencia_alterada', False))
 
         # Exame Físico Geral
         with st.expander('🩺  EXAME FÍSICO GERAL  (desmarque o que estiver alterado)'):
@@ -438,6 +444,18 @@ with col_right:
                     'O prontuário completo aparecerá aqui após a análise.</div>',
                     unsafe_allow_html=True)
     else:
+        # NEWS2 ao vivo — calculado direto dos vitais, antes mesmo do ANALISAR
+        from modules.transversal.news2 import calcular_news2, texto_news2
+        _n2 = calcular_news2(C)
+        if _n2 and _n2['banda'] in ('medio', 'alto', 'baixo_medio'):
+            _cor = {'alto': '#FF6B6B', 'medio': '#F0B429', 'baixo_medio': '#F0B429'}[_n2['banda']]
+            st.markdown(
+                f'<div style="border:1px solid {_cor};border-left:3px solid {_cor};'
+                f'border-radius:4px;padding:0.5rem 0.8rem;margin-bottom:8px;'
+                f'font-size:0.8rem;color:{_cor};">'
+                f'{texto_news2(_n2)}</div>',
+                unsafe_allow_html=True)
+
         resultado = st.session_state.resultado
         if resultado is None:
             st.markdown('<div class="soap-block soap-dim">Preencha a coleta dirigida e clique '

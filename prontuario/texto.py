@@ -8605,6 +8605,8 @@ def gerar_texto_prontuario(paciente, admissao):
         f"Sinais vitais: PA {pa} mmHg | FC {fc} bpm | FR {fr} ipm | "
         f"SatO2 {sat}% | T {temp}°C | Glicemia {hgt} mg/dL"
     )
+    if admissao.get('news2'):
+        linhas.append(admissao['news2'])
     if eg:
         linhas.append(f"Estado geral: {eg}")
     for chave, label in [

@@ -80,7 +80,15 @@ def build_admissao(consult: dict, exam_data: dict, form_data: dict,
     """
     Monta o dict `admissao` completo no formato do CLI.
     """
+    # NEWS2 — triagem objetiva calculada dos sinais vitais (substitui qSOFA)
+    try:
+        from modules.transversal.news2 import calcular_news2, texto_news2
+        news2_txt = texto_news2(calcular_news2(consult))
+    except Exception:
+        news2_txt = ''
+
     admissao = {
+        'news2':                 news2_txt,
         'queixa_principal':      consult.get('queixa_principal', ''),
         'hma':                   consult.get('hma', ''),
         'pa':                    consult.get('pa', ''),

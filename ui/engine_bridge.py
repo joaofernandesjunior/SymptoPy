@@ -5,6 +5,51 @@
 import importlib
 
 
+# ── Urgência — normalização central ──────────────────────────────────────────
+# Vários engines codificam a emergência só na CATEGORIA e não preenchem o campo
+# 'urgencia' → o badge da UI saía vazio justamente nos casos mais graves.
+# Regras conservadoras: só inferem quando 'urgencia' está ausente.
+
+_PADROES_EMERGENCIA = (
+    'emergencia', 'sepse', 'instavel', 'choque', 'fasciite',
+    '_grupo_d', 'cauda_equina', 'status_epilepticus', 'avc_',
+    'tce_', 'meningite', 'overdose', 'hipoxia_grave', 'hipoglicemia',
+)
+_PADROES_URGENTE = (
+    'red_flag', '_grupo_c', 'crise_grave', 'mastoidite', 'abscesso',
+    'dvt_alto_risco', 'pancitopenia', 'internacao', 'exacerbacao_moderada',
+    'linfoma_suspeito', 'neoplasia_metastatica', 'pielonefrite',
+)
+
+# Valores fora do vocabulário do badge → equivalente padrão
+_ALIAS_URGENCIA = {
+    'tratar_imediatamente': 'emergencia',
+    'emergencia_absoluta':  'emergencia',
+    'atenção':              'urgente',
+    'atencao':              'urgente',
+    'eletivo_prioritario':  'urgente',
+    'aps':                  'ambulatorio',
+    'encaminhar_neurologia':      'eletivo',
+    'encaminhar_neurologia_sono': 'eletivo',
+}
+
+
+def _normalizar_urgencia(resultado: dict) -> dict:
+    """Preenche/normaliza resultado['urgencia'] a partir da categoria."""
+    if not isinstance(resultado, dict):
+        return resultado
+    urg = resultado.get('urgencia')
+    if urg:
+        resultado['urgencia'] = _ALIAS_URGENCIA.get(urg, urg)
+        return resultado
+    cat = str(resultado.get('categoria') or '')
+    if any(p in cat for p in _PADROES_EMERGENCIA):
+        resultado['urgencia'] = 'emergencia'
+    elif any(p in cat for p in _PADROES_URGENTE):
+        resultado['urgencia'] = 'urgente'
+    return resultado
+
+
 def run_engine(schema_key: str, form_data: dict, patient_data: dict) -> dict | None:
     """
     schema_key  : chave do MODULE_SCHEMAS (ex: 'celulite', 'palpitacao')
@@ -59,7 +104,7 @@ def run_engine(schema_key: str, form_data: dict, patient_data: dict) -> dict | N
         else:
             resultado = fn(merged)
 
-        return resultado
+        return _normalizar_urgencia(resultado)
 
     except Exception as e:
         return {'_error': str(e), 'tipo': schema_key, 'categoria': 'erro_engine',
