@@ -2311,11 +2311,54 @@ MODULE_SCHEMAS = {
         'engine_fn': 'interpretar_sono',
     },
 
+    # ── TEP — SUSPEITA DE TROMBOEMBOLISMO PULMONAR ───────────────────────────
+    'tep': {
+        'label': 'TEP — Suspeita (Wells + PERC + Bayes)', 'sistema': 'Emergência',
+        'blocks': [
+            _block('⚠ INSTABILIDADE (alto risco)', [
+                _bool('hipotensao_choque',  '🔴 PAS < 90 mmHg ou queda ≥ 40 por > 15 min', flag='red'),
+                _bool('pocus_vd_disfuncao', 'POCUS/eco: VD dilatado/hipocinético', flag='red',
+                      help='Em instável, disfunção de VD autoriza reperfusão SEM angio-TC (ESC 2019)'),
+                _bool('sangramento_ativo',  '⛔ Sangramento ativo (contraindicação a anticoagular)', flag='red'),
+            ], flag='red'),
+            _block('Wells (dois níveis)', [
+                _bool('tvp_sinais_clinicos',   'Sinais clínicos de TVP — edema + dor à palpação (+3)'),
+                _bool('tep_mais_provavel',     'TEP é o diagnóstico MAIS provável (+3)'),
+                _bool('fc_maior_100',          'FC > 100 bpm (+1,5)'),
+                _bool('imobilizacao_cirurgia', 'Imobilização ≥ 3d ou cirurgia < 4 sem (+1,5)'),
+                _bool('tep_tvp_previo',        'TEP/TVP prévio (+1,5)'),
+                _bool('hemoptise',             'Hemoptise (+1)'),
+                _bool('neoplasia_ativa',       'Neoplasia ativa (+1)'),
+            ]),
+            _block('PERC — só se Wells improvável (≤ 4)', [
+                _bool('perc_aplicado',         'Aplicar PERC (todos os itens abaixo avaliados)',
+                      help='8/8 negativos em paciente de baixo risco → TEP descartado SEM exames'),
+                _bool('perc_spo2_95',          'SpO₂ < 95% em ar ambiente', depends_on='perc_aplicado'),
+                _bool('perc_edema_unilateral', 'Edema unilateral de MMII', depends_on='perc_aplicado'),
+                _bool('perc_estrogeno',        'Uso de estrogênio', depends_on='perc_aplicado'),
+            ]),
+            _block('D-dímero (se colhido)', [
+                _num('ddimer_valor', 'D-dímero (µg/L FEU)', 0, 50000, 10, None,
+                     help='Limiar ajustado por idade: > 50 anos → idade × 10. '
+                          'Em Wells PROVÁVEL não descarta — ir direto à imagem.'),
+            ]),
+            _block('sPESI (estratificação se confirmado)', [
+                _bool('spesi_cardiopulmonar', 'Doença cardiopulmonar crônica (IC/DPOC)'),
+                _bool('spesi_pas_100',        'PAS < 100 mmHg'),
+            ]),
+        ],
+        'engine': 'modules.raciocinio.emergencias.engine_tep',
+        'engine_fn': 'interpretar_tep',
+    },
+
 }
 
 # ── Mapeamento de keywords do dispatcher → schema ─────────────────────────
 # Permite que ao selecionar qualquer keyword do dispatcher, encontremos o schema certo.
 KEYWORD_TO_SCHEMA = {
+    # tep
+    'tep': 'tep', 'embolia pulmonar': 'tep', 'tromboembolismo': 'tep',
+    'embolia': 'tep', 'dispneia subita': 'tep',
     # celulite
     'celulite': 'celulite', 'erisipela': 'celulite', 'fasciite': 'celulite',
     'abscesso': 'celulite', 'infeccao de pele': 'celulite', 'linfangite': 'celulite',

@@ -7673,6 +7673,88 @@ def _analise_linfadenopatia(resultado: dict) -> str:
 
 
 # ------------------------------------------------------------------
+# TEP — Subjetivo, #Análise (bayesiana), #Plano A/B
+# ------------------------------------------------------------------
+
+def gerar_subjetivo_tep(admissao):
+    dados = _get_dados_modulo(admissao, 'tep', 'organico')
+    if not dados:
+        return ''
+    partes = []
+
+    # Instabilidade primeiro
+    inst = []
+    if dados.get('hipotensao_choque'):  inst.append('🔴 hipotensão/choque')
+    if dados.get('pocus_vd_disfuncao'): inst.append('🔴 disfunção de VD ao POCUS')
+    if dados.get('sangramento_ativo'):  inst.append('⛔ sangramento ativo')
+    if inst:
+        partes.append('Instabilidade: ' + ', '.join(inst))
+
+    # Itens Wells positivos
+    wells = []
+    if dados.get('tvp_sinais_clinicos'):   wells.append('sinais clínicos de TVP')
+    if dados.get('tep_mais_provavel'):     wells.append('TEP como hipótese mais provável')
+    if dados.get('fc_maior_100'):          wells.append('FC > 100')
+    if dados.get('imobilizacao_cirurgia'): wells.append('imobilização/cirurgia recente')
+    if dados.get('tep_tvp_previo'):        wells.append('TEP/TVP prévio')
+    if dados.get('hemoptise'):             wells.append('hemoptise')
+    if dados.get('neoplasia_ativa'):       wells.append('neoplasia ativa')
+    if wells:
+        partes.append('Fatores Wells: ' + ', '.join(wells))
+
+    # Negativas pertinentes
+    neg = []
+    if dados.get('hemoptise') is False:             neg.append('hemoptise')
+    if dados.get('tvp_sinais_clinicos') is False:   neg.append('sinais de TVP')
+    if dados.get('hipotensao_choque') is False:     neg.append('instabilidade hemodinâmica')
+    if dados.get('tep_tvp_previo') is False:        neg.append('TEP/TVP prévio')
+    if neg:
+        partes.append('Nega: ' + ', '.join(neg))
+
+    ddimer = dados.get('ddimer_valor')
+    if ddimer:
+        partes.append(f'D-dímero colhido: {ddimer} µg/L FEU')
+
+    return _partes_para_texto(partes, separador='. ')
+
+
+def _analise_tep(resultado: dict) -> str:
+    """#Análise — TEP com probabilidades bayesianas explícitas."""
+    linhas = [f"{resultado.get('diagnostico', '')}"]
+    linhas.append(resultado.get('raciocinio', ''))
+
+    itens = resultado.get('wells_itens', [])
+    if itens:
+        linhas.append('Itens Wells: ' + '; '.join(itens) + '.')
+    perc_pos = resultado.get('perc_itens_positivos')
+    if perc_pos:
+        linhas.append('PERC positivo em: ' + ', '.join(perc_pos) +
+                      ' — PERC não exclui, seguir fluxo D-dímero.')
+    return '\n'.join(l for l in linhas if l)
+
+
+def _plano_tep(resultado: dict) -> str:
+    """#Plano — sempre os DOIS planos; o médico escolhe conforme o serviço."""
+    linhas = []
+
+    for alerta in resultado.get('alertas_seguranca', []):
+        linhas.append(alerta)
+    if resultado.get('alertas_seguranca'):
+        linhas.append('')
+
+    for chave in ('plano_a', 'plano_b'):
+        plano = resultado.get(chave)
+        if not plano:
+            continue
+        linhas.append(f"▶ {plano['titulo']}")
+        for item in plano['itens']:
+            linhas.append(f'  • {item}')
+        linhas.append('')
+
+    return '\n'.join(linhas).rstrip()
+
+
+# ------------------------------------------------------------------
 # ORL — Odinofagia / Dor de Garganta — Subjetivo
 # ------------------------------------------------------------------
 
@@ -7986,6 +8068,7 @@ SINTOMAS_REGISTRADOS = [
     ("consciencia",  gerar_subjetivo_consciencia,  lambda _: ""),
     ("linfadenopatia", gerar_subjetivo_linfadenopatia, lambda _: ""),
     ("anemia",       gerar_subjetivo_anemia,       lambda _: ""),
+    ("tep",          gerar_subjetivo_tep,          lambda _: ""),
     ("odinofagia",   gerar_subjetivo_odinofagia,   lambda _: ""),
     ("otalgia",      gerar_subjetivo_otalgia,       lambda _: ""),
     ("rinossinusite",gerar_subjetivo_rinossinusite, lambda _: ""),
@@ -8415,6 +8498,13 @@ _CID_MAP = {
     'fibromialgia_confirmada':     'M79.7',  # Fibromialgia
     'criterios_insuficientes':     'R52.2',  # Outra dor crônica (critérios ACR não preenchidos)
     'investigar_causa_secundaria': 'R52.2',  # Dor crônica em investigação
+
+    # ── TEP ──────────────────────────────────────────────────────────────────
+    'tep_alto_risco':         'I26.0',  # Embolia pulmonar com cor pulmonale agudo
+    'tep_provavel_imagem':    'I26.9',  # Embolia pulmonar sem cor pulmonale (suspeita)
+    'tep_baixa_prob':         'R06.0',  # Dispneia (TEP improvável)
+    'tep_descartado_perc':    'R06.0',  # Dispneia — TEP excluído clinicamente
+    'tep_descartado_ddimer':  'R06.0',  # Dispneia — TEP excluído por D-dímero
     'entorse_tornozelo':      'S93.4',  # Entorse e distensão do tornozelo
     'trauma_ottawa_positivo': 'S82.6',  # Fratura do maléolo lateral (Ottawa positivo)
     'fasciite_plantar':       'M72.2',  # Fasciite plantar
@@ -8673,6 +8763,8 @@ def gerar_texto_prontuario(paciente, admissao):
             txt = _analise_celulite(resultado)
         elif resultado.get('tipo') == 'hemorragia' or categoria in _HEMORRAGIA_CATS:
             txt = _analise_hemorragia(resultado)
+        elif resultado.get('tipo') == 'tep':
+            txt = _analise_tep(resultado)
         elif categoria in _ANEMIA_CATS:
             txt = _analise_anemia(resultado)
         elif categoria in _SONO_CATS:
@@ -8715,6 +8807,13 @@ def gerar_texto_prontuario(paciente, admissao):
         # Cefaleia
         elif resultado.get('tipo') == 'cefaleia':
             txt = _plano_cefaleia(resultado)
+            if txt:
+                linhas.append(txt)
+                plano_gerado = True
+
+        # TEP — planos A/B
+        elif resultado.get('tipo') == 'tep':
+            txt = _plano_tep(resultado)
             if txt:
                 linhas.append(txt)
                 plano_gerado = True
@@ -8932,5 +9031,14 @@ def gerar_texto_prontuario(paciente, admissao):
         linhas.append('\n#Receitas:')
         for bloco in receitas_blocos:
             linhas.append(bloco)
+
+    # ── #Encaminhamento ────────────────────────────────────────────────────────
+    # Carta estruturada gerada pelos módulos de emergência (Plano B) — pronta
+    # para imprimir/transcrever ao escolher encaminhar.
+    for entrada in admissao.get('analises_automaticas', []):
+        resultado = entrada.get('resultado')
+        if resultado and resultado.get('carta_encaminhamento'):
+            linhas.append('\n#Encaminhamento (se Plano B — preencher horários):')
+            linhas.append(resultado['carta_encaminhamento'])
 
     return '\n'.join(linhas)

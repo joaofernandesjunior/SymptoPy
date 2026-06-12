@@ -421,7 +421,18 @@ def pre_vertigem(d: dict) -> dict:
     return d
 
 
+def pre_tep(d: dict) -> dict:
+    """Flags derivadas do TEP: sPESI idade > 80 a partir do cabeçalho."""
+    try:
+        idade = float(d.get('idade', 0) or 0)
+    except (TypeError, ValueError):
+        idade = 0
+    d['spesi_idade_80'] = idade > 80
+    return d
+
+
 PREPROCESSORS = {
+    'tep':           pre_tep,
     'odinofagia':    pre_odinofagia,
     'otalgia':       pre_otalgia,
     'rinossinusite': pre_rinossinusite,
