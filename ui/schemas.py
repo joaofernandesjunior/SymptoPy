@@ -2351,6 +2351,65 @@ MODULE_SCHEMAS = {
         'engine_fn': 'interpretar_tep',
     },
 
+    # ── DOR TORÁCICA — STEMI / HEART / diferenciais letais ───────────────────
+    'dor_toracica': {
+        'label': 'Dor Torácica (STEMI + HEART)', 'sistema': 'Emergência',
+        'blocks': [
+            _block('⚠ LETAIS PRIMEIRO', [
+                _bool('choque_hipotensao',     '🔴 PAS < 90 / má perfusão', flag='red'),
+                _bool('mv_abolido_unilateral', '🔴 MV abolido UNILATERAL (pneumotórax?)', flag='red'),
+                _bool('dor_lacerante_dorso',   '🔴 Dor LACERANTE irradiando para DORSO', flag='red'),
+                _bool('assimetria_pulsos_pa',  '🔴 Assimetria de pulsos/PA entre membros', flag='red'),
+            ], flag='red'),
+            _block('ECG (em até 10 min da chegada)', [
+                _bool('ecg_supra_st',   '🔴 SUPRA de ST (≥ 1mm em 2 derivações contíguas)', flag='red'),
+                _bool('ecg_bre_novo',   '🔴 BRE NOVO (equivalente de supra)', flag='red'),
+                _bool('ecg_infra_st_t_neg', 'Infra de ST / inversão de T'),
+                _bool('ecg_alteracao_inespecifica', 'Alteração inespecífica de repolarização'),
+                _bool('ecg_normal',     'ECG normal'),
+            ]),
+            _block('Logística STEMI (se supra/BRE novo)', [
+                _bool('tem_hemodinamica_local', 'Este serviço TEM hemodinâmica'),
+                _num('distancia_hemodinamica_min', 'Distância até hemodinâmica (MINUTOS)',
+                     0, 600, 5, None,
+                     help='≤ 120 min → transferir direto. > 120 min → trombolisar aqui e transferir.'),
+                _bool('tem_trombolitico', 'Este serviço TEM trombolítico (TNK/alteplase)'),
+            ]),
+            _block('Contraindicações à trombólise', [
+                _bool('sangramento_ativo',      '⛔ Sangramento ativo', flag='red'),
+                _bool('avc_hemorragico_previo', '⛔ AVC hemorrágico prévio', flag='red'),
+                _bool('avci_3m',                '⛔ AVC isquêmico < 3 meses', flag='red'),
+                _bool('neo_snc',                '⛔ Neoplasia/lesão de SNC', flag='red'),
+                _bool('tce_cirurgia_3sem',      '⛔ TCE/cirurgia grande < 3 semanas', flag='red'),
+            ]),
+            _block('HEART — História', [
+                _sel('historia_suspeita', 'História para SCA', [
+                    ('pouco',    'Pouco suspeita (0) — atípica, reproduzível'),
+                    ('moderada', 'Moderadamente suspeita (1) — mista'),
+                    ('muito',    'Muito suspeita (2) — aperto + irradiação + sudorese/esforço'),
+                ]),
+            ]),
+            _block('HEART — Fatores de risco', [
+                _bool('fr_has',          'HAS'),
+                _bool('fr_dm',           'Diabetes'),
+                _bool('fr_tabagismo',    'Tabagismo atual'),
+                _bool('fr_dislipidemia', 'Dislipidemia'),
+                _bool('fr_obesidade',    'Obesidade'),
+                _bool('fr_hist_familiar','História familiar de DAC precoce'),
+                _bool('fr_aterosclerose_conhecida', 'Aterosclerose CONHECIDA (IAM/AVC/DAP prévio) = 2 pts'),
+            ]),
+            _block('HEART — Troponina', [
+                _sel('troponina', 'Troponina', [
+                    ('normal',       'Normal (0)'),
+                    ('elevada_1_3x', 'Elevada 1–3× LSN (1)'),
+                    ('elevada_3x',   'Elevada > 3× LSN (2)'),
+                ]),
+            ]),
+        ],
+        'engine': 'modules.raciocinio.emergencias.engine_dor_toracica',
+        'engine_fn': 'interpretar_dor_toracica',
+    },
+
 }
 
 # ── Mapeamento de keywords do dispatcher → schema ─────────────────────────
@@ -2359,6 +2418,10 @@ KEYWORD_TO_SCHEMA = {
     # tep
     'tep': 'tep', 'embolia pulmonar': 'tep', 'tromboembolismo': 'tep',
     'embolia': 'tep', 'dispneia subita': 'tep',
+    # dor torácica
+    'dor toracica': 'dor_toracica', 'dor no peito': 'dor_toracica',
+    'iam': 'dor_toracica', 'infarto': 'dor_toracica', 'sca': 'dor_toracica',
+    'angina': 'dor_toracica', 'precordialgia': 'dor_toracica',
     # celulite
     'celulite': 'celulite', 'erisipela': 'celulite', 'fasciite': 'celulite',
     'abscesso': 'celulite', 'infeccao de pele': 'celulite', 'linfangite': 'celulite',

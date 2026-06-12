@@ -7733,8 +7733,75 @@ def _analise_tep(resultado: dict) -> str:
     return '\n'.join(l for l in linhas if l)
 
 
+def gerar_subjetivo_dor_toracica(admissao):
+    dados = _get_dados_modulo(admissao, 'dor_toracica', 'organico')
+    if not dados:
+        return ''
+    partes = []
+
+    # Letais primeiro
+    rf = []
+    if dados.get('choque_hipotensao'):     rf.append('🔴 instabilidade hemodinâmica')
+    if dados.get('mv_abolido_unilateral'): rf.append('🔴 MV abolido unilateral')
+    if dados.get('dor_lacerante_dorso'):   rf.append('🔴 dor lacerante irradiando ao dorso')
+    if dados.get('assimetria_pulsos_pa'):  rf.append('🔴 assimetria de pulsos/PA')
+    if rf:
+        partes.append('Sinais de alarme: ' + ', '.join(rf))
+
+    # Caracterização HEART
+    hist = {'pouco': 'pouco suspeita para SCA', 'moderada': 'moderadamente suspeita',
+            'muito': 'muito suspeita (aperto, irradiação, sudorese)'}.get(
+            dados.get('historia_suspeita', ''), '')
+    if hist:
+        partes.append(f'História {hist}')
+
+    # ECG
+    ecg = []
+    if dados.get('ecg_supra_st'):       ecg.append('🔴 SUPRA de ST')
+    if dados.get('ecg_bre_novo'):       ecg.append('🔴 BRE novo')
+    if dados.get('ecg_infra_st_t_neg'): ecg.append('infra de ST/inversão de T')
+    if dados.get('ecg_alteracao_inespecifica'): ecg.append('alteração inespecífica')
+    if dados.get('ecg_normal'):         ecg.append('normal')
+    if ecg:
+        partes.append('ECG: ' + ', '.join(ecg))
+
+    # Fatores de risco
+    frs = [l for k, l in [('fr_has', 'HAS'), ('fr_dm', 'DM'), ('fr_tabagismo', 'tabagismo'),
+                          ('fr_dislipidemia', 'dislipidemia'), ('fr_obesidade', 'obesidade'),
+                          ('fr_hist_familiar', 'história familiar DAC'),
+                          ('fr_aterosclerose_conhecida', 'aterosclerose conhecida')]
+           if dados.get(k)]
+    if frs:
+        partes.append('FRCV: ' + ', '.join(frs))
+
+    tropo = {'normal': 'normal', 'elevada_1_3x': 'elevada 1–3× LSN',
+             'elevada_3x': 'elevada > 3× LSN'}.get(dados.get('troponina', ''), '')
+    if tropo:
+        partes.append(f'Troponina {tropo}')
+
+    # Negativas
+    neg = []
+    if dados.get('dor_lacerante_dorso') is False:  neg.append('dor lacerante/dorsal')
+    if dados.get('choque_hipotensao') is False:    neg.append('instabilidade')
+    if dados.get('assimetria_pulsos_pa') is False: neg.append('assimetria de pulsos')
+    if neg:
+        partes.append('Nega: ' + ', '.join(neg))
+
+    return _partes_para_texto(partes, separador='. ')
+
+
+def _analise_dtx(resultado: dict) -> str:
+    """#Análise — dor torácica com HEART detalhado."""
+    linhas = [resultado.get('diagnostico', '')]
+    linhas.append(resultado.get('raciocinio', ''))
+    itens = resultado.get('heart_itens', [])
+    if itens and resultado.get('heart_score') is not None:
+        linhas.append('Componentes HEART: ' + '; '.join(itens) + '.')
+    return '\n'.join(l for l in linhas if l)
+
+
 def _plano_tep(resultado: dict) -> str:
-    """#Plano — sempre os DOIS planos; o médico escolhe conforme o serviço."""
+    """#Plano A/B — genérico para módulos de emergência (TEP, dor torácica…)."""
     linhas = []
 
     for alerta in resultado.get('alertas_seguranca', []):
@@ -8069,6 +8136,7 @@ SINTOMAS_REGISTRADOS = [
     ("linfadenopatia", gerar_subjetivo_linfadenopatia, lambda _: ""),
     ("anemia",       gerar_subjetivo_anemia,       lambda _: ""),
     ("tep",          gerar_subjetivo_tep,          lambda _: ""),
+    ("dor_toracica", gerar_subjetivo_dor_toracica, lambda _: ""),
     ("odinofagia",   gerar_subjetivo_odinofagia,   lambda _: ""),
     ("otalgia",      gerar_subjetivo_otalgia,       lambda _: ""),
     ("rinossinusite",gerar_subjetivo_rinossinusite, lambda _: ""),
@@ -8505,6 +8573,15 @@ _CID_MAP = {
     'tep_baixa_prob':         'R06.0',  # Dispneia (TEP improvável)
     'tep_descartado_perc':    'R06.0',  # Dispneia — TEP excluído clinicamente
     'tep_descartado_ddimer':  'R06.0',  # Dispneia — TEP excluído por D-dímero
+
+    # ── Dor torácica ─────────────────────────────────────────────────────────
+    'dtx_stemi':                    'I21.9',  # IAM com supra (não especificado)
+    'dtx_sca_alto_risco':           'I20.0',  # Angina instável / NSTEMI
+    'dtx_sca_intermediario':        'I20.9',  # Angina não especificada (em estratificação)
+    'dtx_baixo_risco':              'R07.4',  # Dor torácica não especificada
+    'dtx_inespecifica':             'R07.4',
+    'dtx_dissecao_suspeita':        'I71.0',  # Dissecção de aorta
+    'dtx_pneumotorax_hipertensivo': 'J93.0',  # Pneumotórax hipertensivo
     'entorse_tornozelo':      'S93.4',  # Entorse e distensão do tornozelo
     'trauma_ottawa_positivo': 'S82.6',  # Fratura do maléolo lateral (Ottawa positivo)
     'fasciite_plantar':       'M72.2',  # Fasciite plantar
@@ -8765,6 +8842,8 @@ def gerar_texto_prontuario(paciente, admissao):
             txt = _analise_hemorragia(resultado)
         elif resultado.get('tipo') == 'tep':
             txt = _analise_tep(resultado)
+        elif resultado.get('tipo') == 'dor_toracica':
+            txt = _analise_dtx(resultado)
         elif categoria in _ANEMIA_CATS:
             txt = _analise_anemia(resultado)
         elif categoria in _SONO_CATS:
@@ -8811,8 +8890,8 @@ def gerar_texto_prontuario(paciente, admissao):
                 linhas.append(txt)
                 plano_gerado = True
 
-        # TEP — planos A/B
-        elif resultado.get('tipo') == 'tep':
+        # Emergências — planos A/B (TEP, dor torácica)
+        elif resultado.get('tipo') in ('tep', 'dor_toracica'):
             txt = _plano_tep(resultado)
             if txt:
                 linhas.append(txt)
