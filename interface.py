@@ -161,6 +161,7 @@ def _merge_vitals(form: dict, consult: dict):
     if pa and '/' in pa:
         try:
             form.setdefault('pas', int(pa.split('/')[0].strip()))
+            form.setdefault('pad', int(pa.split('/')[1].strip()))
         except (ValueError, IndexError):
             pass
     for src, dst in [('fc', 'fc'), ('fr', 'fr')]:

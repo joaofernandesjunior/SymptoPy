@@ -7800,6 +7800,55 @@ def _analise_dtx(resultado: dict) -> str:
     return '\n'.join(l for l in linhas if l)
 
 
+def gerar_subjetivo_crise_hipertensiva(admissao):
+    dados = _get_dados_modulo(admissao, 'crise_hipertensiva', 'organico')
+    if not dados:
+        return ''
+    partes = []
+
+    pas, pad = dados.get('pas'), dados.get('pad')
+    if pas and pad:
+        partes.append(f'PA aferida {pas:.0f}×{pad:.0f} mmHg' if isinstance(pas, float)
+                      else f'PA aferida {pas}×{pad} mmHg')
+
+    tod = []
+    if dados.get('tod_encefalopatia'): tod.append('🔴 confusão/cefaleia intensa')
+    if dados.get('tod_convulsao'):     tod.append('🔴 convulsão')
+    if dados.get('tod_deficit_focal'): tod.append('🔴 déficit focal novo')
+    if dados.get('tod_dor_isquemica'): tod.append('🔴 dor torácica isquêmica')
+    if dados.get('tod_eap'):           tod.append('🔴 dispneia/estertores')
+    if dados.get('tod_dor_lacerante'): tod.append('🔴 dor lacerante dorsal')
+    if tod:
+        partes.append('Órgão-alvo: ' + ', '.join(tod))
+
+    ctx = []
+    if dados.get('dor_presente'):      ctx.append('dor presente')
+    if dados.get('ansiedade_panico'):  ctx.append('ansiedade/pânico')
+    if dados.get('retencao_urinaria'): ctx.append('retenção urinária')
+    if dados.get('uso_cocaina_simpaticomimetico'): ctx.append('uso de simpaticomimético')
+    if dados.get('gestante_20sem'):    ctx.append('gestante ≥ 20 sem')
+    if dados.get('ma_adesao'):         ctx.append('má adesão ao tratamento')
+    if ctx:
+        partes.append('Contexto: ' + ', '.join(ctx))
+
+    neg = []
+    if dados.get('tod_encefalopatia') is False: neg.append('alteração neurológica')
+    if dados.get('tod_dor_isquemica') is False: neg.append('dor torácica')
+    if dados.get('tod_eap') is False:           neg.append('dispneia')
+    if dados.get('tod_deficit_focal') is False: neg.append('déficit focal')
+    if neg:
+        partes.append('Nega: ' + ', '.join(neg))
+
+    return _partes_para_texto(partes, separador='. ')
+
+
+def _analise_cha(resultado: dict) -> str:
+    """#Análise — crise hipertensiva."""
+    linhas = [resultado.get('diagnostico', '')]
+    linhas.append(resultado.get('raciocinio', ''))
+    return '\n'.join(l for l in linhas if l)
+
+
 def _plano_tep(resultado: dict) -> str:
     """#Plano A/B — genérico para módulos de emergência (TEP, dor torácica…)."""
     linhas = []
@@ -8137,6 +8186,7 @@ SINTOMAS_REGISTRADOS = [
     ("anemia",       gerar_subjetivo_anemia,       lambda _: ""),
     ("tep",          gerar_subjetivo_tep,          lambda _: ""),
     ("dor_toracica", gerar_subjetivo_dor_toracica, lambda _: ""),
+    ("crise_hipertensiva", gerar_subjetivo_crise_hipertensiva, lambda _: ""),
     ("odinofagia",   gerar_subjetivo_odinofagia,   lambda _: ""),
     ("otalgia",      gerar_subjetivo_otalgia,       lambda _: ""),
     ("rinossinusite",gerar_subjetivo_rinossinusite, lambda _: ""),
@@ -8574,6 +8624,18 @@ _CID_MAP = {
     'tep_descartado_perc':    'R06.0',  # Dispneia — TEP excluído clinicamente
     'tep_descartado_ddimer':  'R06.0',  # Dispneia — TEP excluído por D-dímero
 
+    # ── Crise hipertensiva ───────────────────────────────────────────────────
+    'cha_pseudocrise':              'R03.0',  # PA elevada sem diagnóstico de HAS
+    'cha_assintomatica':            'I10',    # HAS essencial
+    'cha_urgencia':                 'I16.0',  # Urgência hipertensiva
+    'cha_emergencia_encefalopatia': 'I67.4',  # Encefalopatia hipertensiva
+    'cha_emergencia_eap':           'I50.1',  # Edema agudo de pulmão
+    'cha_emergencia_sca':           'I20.0',  # Angina instável/SCA
+    'cha_emergencia_avc':           'I64',    # AVC não especificado
+    'cha_emergencia_dissecao':      'I71.0',  # Dissecção de aorta
+    'cha_eclampsia':                'O15.9',  # Eclâmpsia
+    'cha_adrenergica':              'F14.0',  # Intoxicação por cocaína (crise adrenérgica)
+
     # ── Dor torácica ─────────────────────────────────────────────────────────
     'dtx_stemi':                    'I21.9',  # IAM com supra (não especificado)
     'dtx_sca_alto_risco':           'I20.0',  # Angina instável / NSTEMI
@@ -8844,6 +8906,8 @@ def gerar_texto_prontuario(paciente, admissao):
             txt = _analise_tep(resultado)
         elif resultado.get('tipo') == 'dor_toracica':
             txt = _analise_dtx(resultado)
+        elif resultado.get('tipo') == 'crise_hipertensiva':
+            txt = _analise_cha(resultado)
         elif categoria in _ANEMIA_CATS:
             txt = _analise_anemia(resultado)
         elif categoria in _SONO_CATS:
@@ -8890,8 +8954,8 @@ def gerar_texto_prontuario(paciente, admissao):
                 linhas.append(txt)
                 plano_gerado = True
 
-        # Emergências — planos A/B (TEP, dor torácica)
-        elif resultado.get('tipo') in ('tep', 'dor_toracica'):
+        # Emergências — planos A/B (TEP, dor torácica, crise hipertensiva)
+        elif resultado.get('tipo') in ('tep', 'dor_toracica', 'crise_hipertensiva'):
             txt = _plano_tep(resultado)
             if txt:
                 linhas.append(txt)

@@ -2410,6 +2410,41 @@ MODULE_SCHEMAS = {
         'engine_fn': 'interpretar_dor_toracica',
     },
 
+    # ── CRISE HIPERTENSIVA — pseudocrise / urgência / emergência ─────────────
+    'crise_hipertensiva': {
+        'label': 'Crise Hipertensiva (PA elevada)', 'sistema': 'Emergência',
+        'blocks': [
+            _block('PA aferida (braço, sentado, repetida)', [
+                _num('pas', 'PA sistólica (mmHg)',  60, 300, 5, None),
+                _num('pad', 'PA diastólica (mmHg)', 30, 200, 5, None),
+            ]),
+            _block('⚠ LESÃO DE ÓRGÃO-ALVO (qualquer uma = EMERGÊNCIA)', [
+                _bool('tod_encefalopatia',  '🔴 Confusão / cefaleia intensa + vômitos / rebaixamento', flag='red'),
+                _bool('tod_convulsao',      '🔴 Convulsão', flag='red'),
+                _bool('tod_deficit_focal',  '🔴 Déficit focal NOVO (AVC?)', flag='red'),
+                _bool('tod_dor_isquemica',  '🔴 Dor torácica isquêmica (SCA?)', flag='red'),
+                _bool('tod_eap',            '🔴 Dispneia + estertores (EAP?)', flag='red'),
+                _bool('tod_dor_lacerante',  '🔴 Dor lacerante irradiando ao dorso (dissecção?)', flag='red'),
+            ], flag='red'),
+            _block('Pseudocrise? (causa elevando a PA)', [
+                _bool('dor_presente',      'Dor significativa presente (qualquer origem)'),
+                _bool('ansiedade_panico',  'Ansiedade / crise de pânico'),
+                _bool('retencao_urinaria', 'Retenção urinária / bexigoma'),
+            ]),
+            _block('Contexto', [
+                _bool('uso_cocaina_simpaticomimetico', 'Uso de cocaína/anfetamina/simpaticomimético'),
+                _bool('gestante_20sem',    'Gestante ≥ 20 semanas', flag='red'),
+                _bool('epigastralgia_gestante', 'Epigastralgia/dor em barra (gestante)',
+                      depends_on='gestante_20sem'),
+                _bool('ma_adesao',         'Má adesão ao esquema anti-hipertensivo'),
+                _bool('alergia_ieca',      'Alergia/intolerância a IECA (tosse, angioedema)'),
+                _bool('hipercalemia_conhecida', 'Hipercalemia conhecida'),
+            ]),
+        ],
+        'engine': 'modules.raciocinio.emergencias.engine_crise_hipertensiva',
+        'engine_fn': 'interpretar_crise_hipertensiva',
+    },
+
 }
 
 # ── Mapeamento de keywords do dispatcher → schema ─────────────────────────
@@ -2422,6 +2457,10 @@ KEYWORD_TO_SCHEMA = {
     'dor toracica': 'dor_toracica', 'dor no peito': 'dor_toracica',
     'iam': 'dor_toracica', 'infarto': 'dor_toracica', 'sca': 'dor_toracica',
     'angina': 'dor_toracica', 'precordialgia': 'dor_toracica',
+    # crise hipertensiva
+    'pressao alta': 'crise_hipertensiva', 'crise hipertensiva': 'crise_hipertensiva',
+    'pa elevada': 'crise_hipertensiva', 'hipertensao': 'crise_hipertensiva',
+    'urgencia hipertensiva': 'crise_hipertensiva', 'emergencia hipertensiva': 'crise_hipertensiva',
     # celulite
     'celulite': 'celulite', 'erisipela': 'celulite', 'fasciite': 'celulite',
     'abscesso': 'celulite', 'infeccao de pele': 'celulite', 'linfangite': 'celulite',
