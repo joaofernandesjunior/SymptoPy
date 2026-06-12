@@ -1046,8 +1046,9 @@ MODULE_SCHEMAS = {
         'blocks': [
             _block('Tipo de Consulta', [
                 _sel('consulta_tipo', 'Apresentação', [
-                    ('exacerbacao', 'Crise / exacerbação aguda'),
-                    ('rotina',      'Controle / rotina'),
+                    # valor 'crise' — é o que o engine_asma reconhece (≠ dpoc, que usa 'exacerbacao')
+                    ('crise',  'Crise / exacerbação aguda'),
+                    ('rotina', 'Controle / rotina'),
                 ]),
             ]),
             _block('Gravidade da Crise (red flags)', [
