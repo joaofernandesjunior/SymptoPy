@@ -2498,6 +2498,65 @@ MODULE_SCHEMAS = {
         'engine_fn': 'interpretar_anafilaxia',
     },
 
+    # ── DISPNEIA AGUDA — roteador de etiologia (UPA) ─────────────────────────
+    'dispneia': {
+        'label': 'Dispneia Aguda (triagem etiológica)', 'sistema': 'Emergência',
+        'blocks': [
+            _block('⚠ Falência respiratória iminente', [
+                _bool('rebaixamento',          '🔴 Rebaixamento de consciência', flag='red'),
+                _bool('torax_silencioso',      '🔴 Tórax silencioso à ausculta', flag='red'),
+                _bool('exaustao_respiratoria', '🔴 Exaustão respiratória', flag='red'),
+                _bool('cianose',               '🔴 Cianose', flag='red'),
+            ], flag='red'),
+            _block('Padrão CONGESTIVO (IC / EAP)', [
+                _bool('ortopneia',          'Ortopneia'),
+                _bool('dpn',                'Dispneia paroxística noturna'),
+                _bool('edema_bilateral_mmii','Edema bilateral de MMII'),
+                _bool('turgencia_jugular',  'Turgência jugular'),
+                _bool('crepitantes_bibasais','Crepitantes bibasais'),
+                _bool('b3_ritmo_galope',    'B3 / ritmo de galope'),
+                _bool('eap_franco',         '🔴 EAP franco (espuma rósea, afogamento)', flag='red'),
+            ]),
+            _block('Padrão INFECCIOSO (pneumonia)', [
+                _bool('febre',                 'Febre'),
+                _bool('tosse_produtiva',       'Tosse produtiva'),
+                _bool('crepitantes_localizados','Crepitantes localizados'),
+                _bool('consolidacao_rx',       'Consolidação no Rx'),
+                # CURB-65
+                _bool('confusao_mental',       'Confusão mental (CURB)'),
+                _num('ureia',  'Ureia (mg/dL, CURB)', 0, 300, 5, None),
+            ]),
+            _block('Padrão OBSTRUTIVO (asma/DPOC)', [
+                _bool('sibilos',         'Sibilos / chiado'),
+                _bool('tabagista',       'Tabagista'),
+                _bool('dpoc_conhecida',  'DPOC conhecida'),
+                _bool('asma_conhecida',  'Asma conhecida'),
+            ]),
+            _block('Padrão EMBÓLICO / SÚBITO', [
+                _bool('inicio_subito',    'Início súbito'),
+                _bool('dor_pleuritica',   'Dor pleurítica'),
+                _bool('hemoptise',        'Hemoptise'),
+                _bool('fator_risco_tev',  'Fator de risco para TEV (imobilização, neo, TVP prévia)'),
+            ]),
+            _block('Achados de ausculta/percussão focais', [
+                _bool('mv_abolido_unilateral', 'MV abolido unilateral'),
+                _bool('timpanismo',            'Timpanismo (pneumotórax?)'),
+                _bool('macicez',               'Macicez (derrame?)'),
+                _bool('trauma_toracico',       'Trauma torácico'),
+                _bool('desvio_traqueia',       '🔴 Desvio de traqueia', flag='red'),
+            ]),
+            _block('Não-pulmonar', [
+                _num('hb', 'Hemoglobina (g/dL, se disponível)', 2, 20, 0.5, None),
+                _bool('palidez',               'Palidez importante'),
+                _bool('sem_foco_cardiopulmonar','Exame cardiopulmonar sem foco'),
+                _bool('parestesias_periorais', 'Parestesias periorais / mãos'),
+                _bool('contexto_ansiedade',    'Contexto de ansiedade/pânico'),
+            ]),
+        ],
+        'engine': 'modules.raciocinio.emergencias.engine_dispneia',
+        'engine_fn': 'interpretar_dispneia',
+    },
+
 }
 
 # ── Mapeamento de keywords do dispatcher → schema ─────────────────────────
@@ -2521,6 +2580,11 @@ KEYWORD_TO_SCHEMA = {
     # anafilaxia
     'anafilaxia': 'anafilaxia', 'reacao alergica': 'anafilaxia', 'alergia': 'anafilaxia',
     'urticaria': 'anafilaxia', 'angioedema': 'anafilaxia', 'choque anafilatico': 'anafilaxia',
+    # dispneia
+    'dispneia': 'dispneia', 'falta de ar': 'dispneia', 'dispneia aguda': 'dispneia',
+    'cansaco': 'dispneia', 'sufocamento': 'dispneia', 'insuficiencia respiratoria': 'dispneia',
+    'edema agudo de pulmao': 'dispneia', 'eap': 'dispneia', 'pneumonia': 'dispneia',
+    'ic descompensada': 'dispneia', 'pneumotorax': 'dispneia', 'derrame pleural': 'dispneia',
     # celulite
     'celulite': 'celulite', 'erisipela': 'celulite', 'fasciite': 'celulite',
     'abscesso': 'celulite', 'infeccao de pele': 'celulite', 'linfangite': 'celulite',

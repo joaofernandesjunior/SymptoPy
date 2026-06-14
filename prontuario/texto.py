@@ -40,6 +40,11 @@ def _get_dados_modulo(admissao, modulo_nome, tipo='msk'):
 # ------------------------------------------------------------------
 
 def gerar_subjetivo_dispneia(admissao):
+    # Web (módulo PA de triagem): dados_por_modulo tem o novo conjunto de campos
+    disp_web = _get_dados_modulo(admissao, 'dispneia', 'organico')
+    if disp_web:
+        return _subjetivo_dispneia_pa(disp_web)
+
     disp = admissao.get("subjetivo_especifico", {}).get("dispneia")
     if not disp:
         return ""
@@ -7894,9 +7899,63 @@ def gerar_subjetivo_anafilaxia(admissao):
 
 
 def _analise_emergencia_generica(resultado: dict) -> str:
-    """#Análise — diagnóstico + raciocínio (disglicemia, anafilaxia)."""
+    """#Análise — diagnóstico + raciocínio (disglicemia, anafilaxia, dispneia)."""
     linhas = [resultado.get('diagnostico', ''), resultado.get('raciocinio', '')]
     return '\n'.join(l for l in linhas if l)
+
+
+def _subjetivo_dispneia_pa(dados: dict) -> str:
+    """Subjetivo do módulo de triagem de dispneia (formato web)."""
+    partes = []
+    rf = []
+    if dados.get('rebaixamento'):          rf.append('🔴 rebaixamento')
+    if dados.get('torax_silencioso'):      rf.append('🔴 tórax silencioso')
+    if dados.get('exaustao_respiratoria'): rf.append('🔴 exaustão respiratória')
+    if dados.get('cianose'):               rf.append('🔴 cianose')
+    if rf:
+        partes.append('Gravidade: ' + ', '.join(rf))
+
+    congest = [l for k, l in [('ortopneia', 'ortopneia'), ('dpn', 'DPN'),
+               ('edema_bilateral_mmii', 'edema bilateral MMII'), ('turgencia_jugular', 'TJ'),
+               ('crepitantes_bibasais', 'crepitantes bibasais'), ('b3_ritmo_galope', 'B3')]
+               if dados.get(k)]
+    if congest:
+        partes.append('Congestivo: ' + ', '.join(congest))
+
+    infec = [l for k, l in [('febre', 'febre'), ('tosse_produtiva', 'tosse produtiva'),
+             ('crepitantes_localizados', 'crepitantes localizados')] if dados.get(k)]
+    if infec:
+        partes.append('Infeccioso: ' + ', '.join(infec))
+
+    obstr = [l for k, l in [('sibilos', 'sibilos'), ('tabagista', 'tabagista'),
+             ('dpoc_conhecida', 'DPOC conhecida'), ('asma_conhecida', 'asma conhecida')]
+             if dados.get(k)]
+    if obstr:
+        partes.append('Obstrutivo: ' + ', '.join(obstr))
+
+    embol = [l for k, l in [('inicio_subito', 'início súbito'), ('dor_pleuritica', 'dor pleurítica'),
+             ('hemoptise', 'hemoptise'), ('fator_risco_tev', 'fator de risco TEV')]
+             if dados.get(k)]
+    if embol:
+        partes.append('Súbito/embólico: ' + ', '.join(embol))
+
+    focal = [l for k, l in [('mv_abolido_unilateral', 'MV abolido unilateral'),
+             ('timpanismo', 'timpanismo'), ('macicez', 'macicez'),
+             ('trauma_toracico', 'trauma torácico'), ('desvio_traqueia', '🔴 desvio de traqueia')]
+             if dados.get(k)]
+    if focal:
+        partes.append('Ausculta/percussão: ' + ', '.join(focal))
+
+    hb = dados.get('hb')
+    naopulm = []
+    if hb: naopulm.append(f'Hb {hb}')
+    if dados.get('palidez'): naopulm.append('palidez')
+    if dados.get('parestesias_periorais'): naopulm.append('parestesias periorais')
+    if dados.get('contexto_ansiedade'): naopulm.append('contexto ansioso')
+    if naopulm:
+        partes.append('Não-pulmonar: ' + ', '.join(naopulm))
+
+    return _partes_para_texto(partes, separador='. ')
 
 
 def _plano_tep(resultado: dict) -> str:
@@ -8688,6 +8747,17 @@ _CID_MAP = {
     'cha_eclampsia':                'O15.9',  # Eclâmpsia
     'cha_adrenergica':              'F14.0',  # Intoxicação por cocaína (crise adrenérgica)
 
+    # ── Dispneia (roteador) ──────────────────────────────────────────────────
+    'disp_pneumotorax':       'J93.0',  # Pneumotórax (hipertensivo: espontâneo de tensão)
+    'disp_ic_eap':            'I50.1',  # Insuficiência VE / EAP
+    'disp_pneumonia':         'J18.9',  # Pneumonia não especificada
+    'disp_obstrutivo':        'J44.1',  # DPOC exacerbada (asma: ver módulo)
+    'disp_suspeita_tep':      'I26.9',  # Embolia pulmonar (suspeita)
+    'disp_derrame_pleural':   'J90',    # Derrame pleural
+    'disp_anemia':            'D64.9',  # Anemia não especificada
+    'disp_hiperventilacao':   'F45.33', # Hiperventilação / disfunção respiratória somatoforme
+    'disp_indefinida':        'R06.0',  # Dispneia
+
     # ── Disglicemia ──────────────────────────────────────────────────────────
     'hipoglicemia':           'E16.2',  # Hipoglicemia não especificada
     'cad':                    'E10.1',  # DM com cetoacidose
@@ -8974,7 +9044,7 @@ def gerar_texto_prontuario(paciente, admissao):
             txt = _analise_dtx(resultado)
         elif resultado.get('tipo') == 'crise_hipertensiva':
             txt = _analise_cha(resultado)
-        elif resultado.get('tipo') in ('disglicemia', 'anafilaxia'):
+        elif resultado.get('tipo') in ('disglicemia', 'anafilaxia', 'dispneia'):
             txt = _analise_emergencia_generica(resultado)
         elif categoria in _ANEMIA_CATS:
             txt = _analise_anemia(resultado)
@@ -9022,9 +9092,9 @@ def gerar_texto_prontuario(paciente, admissao):
                 linhas.append(txt)
                 plano_gerado = True
 
-        # Emergências — planos A/B (TEP, dor torácica, crise hipertensiva, disglicemia, anafilaxia)
+        # Emergências — planos A/B (TEP, dor torácica, crise hipertensiva, disglicemia, anafilaxia, dispneia)
         elif resultado.get('tipo') in ('tep', 'dor_toracica', 'crise_hipertensiva',
-                                       'disglicemia', 'anafilaxia'):
+                                       'disglicemia', 'anafilaxia', 'dispneia'):
             txt = _plano_tep(resultado)
             if txt:
                 linhas.append(txt)

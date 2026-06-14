@@ -179,6 +179,14 @@ def _merge_vitals(form: dict, consult: dict):
             form.setdefault('temperatura', t)
         except ValueError:
             pass
+    sat = consult.get('sato2', '')
+    if sat:
+        try:
+            s = float(sat)
+            form.setdefault('spo2', s)
+            form.setdefault('sato2', s)
+        except ValueError:
+            pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────
