@@ -76,6 +76,7 @@ def _init_state():
         'exam': {'estado_geral': ''},
         'form_data': {},
         'resultado': None,
+        'soap_txt': '',
         'show_modal': False,
         'perfil_farmaco': {
             'egfr': None,
@@ -432,16 +433,8 @@ with col_left:
             label_visibility='collapsed', placeholder='Resultados de exames disponíveis...')
 
         st.markdown('<hr>', unsafe_allow_html=True)
-        if st.button('⚡  ANALISAR  →  GERAR SOAP COMPLETO', use_container_width=True, type='primary'):
-            with st.spinner('Processando...'):
-                _merge_vitals(form, C)
-                resultado = run_engine(schema_key, form, {
-                    **P, 'idade': P['idade'], 'sexo': P['sexo']})
-                perfil = {**PERFIL_VAZIO, **st.session_state.perfil_farmaco,
-                          'idade': P['idade']}
-                resultado = verificar_interacoes(resultado, perfil)
-                st.session_state.resultado = resultado
-            st.rerun()
+        st.caption('▲ O SOAP à direita atualiza ao vivo conforme você preenche — '
+                   'sem botão.')
 
 
 # ── PAINEL DIREITO — SOAP COMPLETO ───────────────────────────────────────────
@@ -453,7 +446,7 @@ with col_right:
                     'O prontuário completo aparecerá aqui após a análise.</div>',
                     unsafe_allow_html=True)
     else:
-        # NEWS2 ao vivo — calculado direto dos vitais, antes mesmo do ANALISAR
+        # NEWS2 ao vivo — calculado direto dos vitais do cabeçalho
         from modules.transversal.news2 import calcular_news2, texto_news2
         _n2 = calcular_news2(C)
         if _n2 and _n2['banda'] in ('medio', 'alto', 'baixo_medio'):
@@ -465,13 +458,24 @@ with col_right:
                 f'{texto_news2(_n2)}</div>',
                 unsafe_allow_html=True)
 
-        resultado = st.session_state.resultado
-        if resultado is None:
-            st.markdown('<div class="soap-block soap-dim">Preencha a coleta dirigida e clique '
-                        'em <b>ANALISAR</b> para gerar o SOAP completo.</div>',
+        # SOAP REATIVO — recalcula a cada mudança (sem botão).
+        # Vitais entram numa cópia transitória (engine_form), então mudanças no
+        # cabeçalho propagam sempre e o form_data persistente fica só com a coleta.
+        engine_form = dict(form)
+        _merge_vitals(engine_form, C)
+        resultado = run_engine(schema_key, engine_form,
+                               {**P, 'idade': P['idade'], 'sexo': P['sexo']})
+        perfil = {**PERFIL_VAZIO, **st.session_state.perfil_farmaco, 'idade': P['idade']}
+        resultado = verificar_interacoes(resultado, perfil)
+        st.session_state.resultado = resultado
+
+        if not resultado or resultado.get('_error'):
+            st.markdown('<div class="soap-block soap-dim">Selecione a queixa e preencha a '
+                        'coleta — o SOAP aparece aqui ao vivo.</div>',
                         unsafe_allow_html=True)
         else:
-            soap_txt = build_full_soap(P, C, EX, form, schema_key, resultado)
+            soap_txt = build_full_soap(P, C, EX, engine_form, schema_key, resultado)
+            st.session_state.soap_txt = soap_txt
             # Badge de urgência
             urg = resultado.get('urgencia', '')
             badges = {
@@ -534,10 +538,9 @@ with col_right:
 # ─────────────────────────────────────────────────────────────────────────────
 # MODAL — copiar
 # ─────────────────────────────────────────────────────────────────────────────
-if st.session_state.show_modal and st.session_state.resultado:
-    soap_txt = build_full_soap(P, C, EX, form, schema_key, st.session_state.resultado)
+if st.session_state.show_modal and st.session_state.get('soap_txt'):
     with st.expander('📋 SOAP COMPLETO — Copiar e colar no prontuário', expanded=True):
-        st.text_area('', value=soap_txt, height=520, label_visibility='collapsed')
+        st.text_area('', value=st.session_state.soap_txt, height=520, label_visibility='collapsed')
         if st.button('✕ Fechar'):
             st.session_state.show_modal = False
             st.rerun()
