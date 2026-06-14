@@ -231,11 +231,13 @@ def interpretar_dispneia(dados: dict) -> dict:
         provavel = ('DPOC' if (dados.get('tabagista') or dados.get('dpoc_conhecida')
                                or (idade and idade >= 50))
                     else 'asma' if dados.get('asma_conhecida') else 'asma/DPOC')
+        prox = 'dpoc' if provavel == 'DPOC' else 'asma'
         return {
             **base,
             'categoria': 'disp_obstrutivo',
             'diagnostico': f'Dispneia obstrutiva (sibilância) — provável {provavel}',
             'urgencia': 'urgente',
+            'proximo_modulo': prox,
             'raciocinio': (
                 'Sibilância difusa = padrão obstrutivo. '
                 f'Perfil sugere {provavel}. Broncodilatador é a base imediata '
@@ -269,6 +271,7 @@ def interpretar_dispneia(dados: dict) -> dict:
             'categoria': 'disp_suspeita_tep',
             'diagnostico': 'Dispneia súbita — suspeita de TEP',
             'urgencia': 'urgente',
+            'proximo_modulo': 'tep',
             'raciocinio': (
                 'Dispneia súbita + '
                 + ('dor pleurítica/' if dados.get('dor_pleuritica') else '')
@@ -321,6 +324,7 @@ def interpretar_dispneia(dados: dict) -> dict:
             'diagnostico': f'Dispneia por anemia'
                            + (f' grave (Hb {hb:.1f})' if hb is not None else ''),
             'urgencia': 'urgente',
+            'proximo_modulo': 'anemia',
             'raciocinio': (
                 'Dispneia + palidez/Hb baixa sem foco cardiopulmonar → anemia como causa '
                 '(↓ transporte de O₂). '

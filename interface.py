@@ -488,6 +488,24 @@ with col_right:
                             f'padding:4px 12px;margin-bottom:8px;">{txt}</div>',
                             unsafe_allow_html=True)
 
+            # Handoff — fecha o loop da triagem (dispneia → módulo dedicado)
+            prox = resultado.get('proximo_modulo')
+            prox_schema = MODULE_SCHEMAS.get(prox) if prox else None
+            if prox_schema:
+                prox_label = prox_schema.get('label', prox)
+                st.info(f'Triagem aponta para **{prox_label}** — '
+                        f'os sinais vitais e comorbidades do cabeçalho já seguem junto.')
+                if st.button(f'▶  CONTINUAR NO MÓDULO: {prox_label}',
+                             use_container_width=True, type='primary'):
+                    # Troca o módulo ativo carregando o contexto do cabeçalho
+                    disp = next((d for d, k in QUEIXA_MAP.items() if k == prox), None)
+                    P['queixa_key'] = prox
+                    P['queixa_display'] = disp or ''
+                    P['queixa_principal'] = prox_label
+                    st.session_state.form_data = {}
+                    st.session_state.resultado = None
+                    st.rerun()
+
             # Alertas de segurança em destaque
             alertas = resultado.get('alertas_seguranca', [])
             if alertas:
