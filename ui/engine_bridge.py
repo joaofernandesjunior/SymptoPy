@@ -50,6 +50,38 @@ def _normalizar_urgencia(resultado: dict) -> dict:
     return resultado
 
 
+# ── Comorbidades do cabeçalho → flags clínicas dos engines ───────────────────
+# O médico marca a comorbidade UMA vez no cabeçalho; cada engine lê a flag
+# correspondente. Aplicado com setdefault → o campo do módulo (se o médico
+# marcou/negou explicitamente) sempre vence. Só definimos True (presença);
+# nunca False — ausência de comorbidade no cabeçalho não é negativa clínica.
+_COMORB_PARA_FLAGS = {
+    'HAS':             {'fr_has': True},
+    'DM2':             {'fr_dm': True},
+    'DPOC':            {'dpoc_conhecida': True, 'spesi_cardiopulmonar': True},
+    'ICC':             {'spesi_cardiopulmonar': True},
+    'FA':              {'fa_arritmia': True},
+    'Cirrose':         {'hepatopatia': True},
+    'Asma':            {'asma_conhecida': True},
+    'Dislipidemia':    {'fr_dislipidemia': True},
+    'Obesidade':       {'fr_obesidade': True},
+    'AVC prévio':      {'fr_aterosclerose_conhecida': True},
+    'IAM prévio':      {'fr_aterosclerose_conhecida': True},
+    'Neoplasia ativa': {'neoplasia_ativa': True, 'fator_risco_tev': True},
+    'Tabagismo':       {'tabagista': True, 'fr_tabagismo': True},
+    'Etilismo':        {'etilista_desnutrido': True},
+}
+
+
+def _derivar_contexto_paciente(merged: dict, patient_data: dict) -> dict:
+    """Converte comorbidades do cabeçalho nas flags que os engines leem."""
+    comorbs = patient_data.get('comorbidades_sel') or []
+    for comorb in comorbs:
+        for flag, valor in _COMORB_PARA_FLAGS.get(comorb, {}).items():
+            merged.setdefault(flag, valor)
+    return merged
+
+
 def run_engine(schema_key: str, form_data: dict, patient_data: dict) -> dict | None:
     """
     schema_key  : chave do MODULE_SCHEMAS (ex: 'celulite', 'palpitacao')
@@ -80,6 +112,10 @@ def run_engine(schema_key: str, form_data: dict, patient_data: dict) -> dict | N
     # em vez de receberem None e quebrarem em comparações. (Cópia: não afeta o
     # form_data original usado pelos renderers de subjetivo / negativas.)
     merged = {k: v for k, v in merged.items() if v is not None}
+
+    # Comorbidades do cabeçalho → flags clínicas (HEART, Wells, sPESI, etc.)
+    # setdefault: o que o médico marcou no módulo prevalece.
+    merged = _derivar_contexto_paciente(merged, patient_data)
 
     # Pré-processador: computa flags derivadas (centor_score, oma_suspeita, etc.)
     # para módulos cujo engine LÊ flags que o coletor CLI calculava.
