@@ -294,6 +294,7 @@ def gerar_subjetivo_cefaleia(admissao):
         ("febre",                "associada a febre"),
         ("rigidez_nuca",         "com rigidez de nuca"),
         ("deficit_focal",        "com déficit focal referido"),
+        ("historico_enxaqueca",  "história pessoal/familiar de enxaqueca"),
     ]
 
     for chave, texto in _campos_positivos:
@@ -6607,6 +6608,9 @@ def gerar_subjetivo_gota(admissao):
             ult_str += f', urato {urato_ult:.1f} mg/dL {alvo}'
         partes.append(ult_str)
 
+    if dados.get('drc'):
+        partes.append('DRC conhecida (atenção à escolha do anti-inflamatório)')
+
     neg = _negativas_gota(dados)
     if neg:
         partes.append(neg)
@@ -6652,6 +6656,28 @@ def gerar_subjetivo_sincope(admissao):
         else: partes.append('ECG realizado sem alterações de alarme')
     if dados.get('pa_ortostatica_medida'):
         if dados.get('queda_pas_20'): partes.append('queda PA sistólica ≥ 20 mmHg ao ortostatismo')
+
+    if dados.get('perda_consciencia_completa'):
+        partes.append('perda COMPLETA de consciência')
+    if dados.get('gatilho_carotideo'):
+        partes.append('gatilho: compressão do seio carotídeo (girar pescoço/colarinho)')
+
+    # Achados que sugerem CRISE CONVULSIVA em vez de síncope
+    convulsao = [l for k, l in [
+        ('mordedura_lingua',  'mordedura lateral de língua'),
+        ('incontinencia',     'incontinência esfincteriana'),
+        ('pos_convulsao',     'confusão pós-ictal prolongada (> 30s)')] if dados.get(k)]
+    if convulsao:
+        partes.append('⚠️ Sugestivo de CRISE CONVULSIVA (não síncope): '
+                      + ', '.join(convulsao) + ' — investigar etiologia neurológica/EEG')
+
+    # Negativas pertinentes para afastar convulsão
+    neg = [l for k, l in [
+        ('mordedura_lingua', 'mordedura de língua'),
+        ('incontinencia',    'incontinência'),
+        ('pos_convulsao',    'pós-ictal')] if dados.get(k) is False]
+    if neg:
+        partes.append('Nega: ' + ', '.join(neg))
     return _partes_para_texto(partes, separador='. ')
 
 def gerar_objetivo_sincope(admissao): return ''
@@ -7151,12 +7177,21 @@ def gerar_subjetivo_hemorragia(admissao):
         atc = dados.get('anticoagulante') or 'anticoagulante'
         partes.append(f'em uso de {atc}')
 
+    # fatores de risco extras
+    fr = []
+    if dados.get('alcool_cronico'): fr.append('uso crônico de álcool (risco de varizes)')
+    if dados.get('hp_conhecido'):   fr.append('H. pylori conhecido')
+    if fr:
+        partes.append(', '.join(fr))
+
     # negativas
     neg = []
     if dados.get('cirrose') is False and ramo == 'ugib':
         neg.append('nega cirrose')
     if dados.get('anticoagulado') is False:
         neg.append('nega anticoagulante')
+    if dados.get('alcool_cronico') is False:
+        neg.append('nega etilismo crônico')
     if neg:
         partes.append(f'Nega: {", ".join(neg)}')
 
@@ -7405,6 +7440,13 @@ def gerar_subjetivo_gastro(admissao):
         neg.append('nega perda de peso')
     if neg:
         partes.append('Nega: ' + ', '.join(neg))
+
+    extra = []
+    if dados.get('anorexia'):                extra.append('anorexia/hiporexia')
+    if dados.get('distensao_pos_refeicao'):  extra.append('distensão pós-prandial')
+    if dados.get('etilismo'):                extra.append('etilismo/uso regular de álcool')
+    if extra:
+        partes.append(', '.join(extra))
 
     return _partes_para_texto(partes)
 

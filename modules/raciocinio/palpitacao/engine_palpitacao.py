@@ -1208,7 +1208,7 @@ def _analisar_palpitacao_core(dados: dict) -> dict:
     # ── Leitura dos flags principais ─────────────────────────────────────────
     instab        = dados.get('instabilidade_hemodinamica', False)
     sincope       = dados.get('sincope', False)
-    wpw           = dados.get('wpw_suspeita', False)
+    wpw           = dados.get('wpw_suspeita', False) or dados.get('ecg_wpw', False)
     tv            = dados.get('tv_suspeita', False)
     brugada       = dados.get('brugada_suspeito', False)
     qt_longo      = dados.get('qt_longo_suspeito', False)
