@@ -116,7 +116,7 @@ def _avaliar_aguda(dados, imuno):
     if dados.get('estertores_ausculta'):      bacteriana_score += 4
     if dados.get('expectoracao_purulenta'):   bacteriana_score += 2
     if dados.get('dor_pleuritica'):           bacteriana_score += 2
-    if dados.get('dispneia_assoc'):           bacteriana_score += 1
+    if dados.get('dispneia_progressiva'):     bacteriana_score += 1
     if dados.get('saturacao_baixa'):          bacteriana_score += 3
     if dados.get('imunossuprimido'):          bacteriana_score += 2
 
@@ -142,12 +142,38 @@ def _avaliar_aguda(dados, imuno):
             'internacao': dados.get('saturacao_baixa') or dados.get('febre_alta'),
         }
 
-    # Viral / IVRS
+    # Viral — bronquite aguda (produtiva) ou IVAS (seca). Diagnóstico por exclusão
+    # de pneumonia/pertussis: rótulo conservador + ressalvas explícitas.
+    produtiva = dados.get('tosse_produtiva') or dados.get('expectoracao_purulenta')
+    semanas = dados.get('duracao_semanas', 0) or 0
+    quase_pertussis = pertussis_score >= 4  # paroxística/duração sem cruzar o limiar
+
+    if produtiva:
+        hipotese = 'Bronquite Aguda (provável viral) — autolimitada'
+        positivos = ['Tosse produtiva sem critérios de pneumonia '
+                     f'(score bacteriano {bacteriana_score}/6) — escarro purulento NÃO '
+                     'indica antibiótico isoladamente']
+    else:
+        hipotese = 'Infecção Viral de Vias Aéreas Superiores'
+        positivos = ['Quadro autolimitado, sem critérios de gravidade']
+
+    ressalvas = []
+    if quase_pertussis:
+        ressalvas.append(
+            '⚠️ Tosse paroxística' + (f' há {semanas} semanas' if semanas >= 2 else '') +
+            ' — considerar COQUELUCHE (PCR nasofaringe; azitromicina empírica se '
+            'epidemiologia/contato; notificar).')
+    ressalvas.append(
+        '⚠️ Reavaliar PNEUMONIA se surgirem estertores localizados, dor pleurítica, '
+        'taquipneia (FR ≥ 24) ou SpO₂ < 94% — o exame físico mudou a hipótese.')
+
     return {
         'categoria': 'tosse_aguda_viral',
         'red_flags': imuno,
-        'hipotese': 'Infecção Viral de Vias Aéreas Superiores',
-        'positivos': ['Quadro autolimitado, sem critérios de gravidade'],
+        'hipotese': hipotese,
+        'score': bacteriana_score,
+        'positivos': positivos,
+        'ressalvas': ressalvas,
         'conduta': [
             'Tratamento sintomático: analgésico/antitérmico (paracetamol 500–1000 mg 6/6h)',
             'Hidratação oral adequada',

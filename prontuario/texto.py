@@ -1688,25 +1688,21 @@ def _fmt_negativas(itens: list) -> str:
 # ------------------------------------------------------------------
 
 def _negativas_tosse(dados: dict) -> str:
-    """Pertinentes negativas documentadas no #Subjetivo — Tosse."""
-    neg = []
-    # Imunossupressão (sempre perguntado)
-    if dados.get('hiv_diagnosticado') is False:
-        neg.append('HIV')
-    if dados.get('corticoide_cronico') is False:
-        neg.append('corticosteroide crônico')
-    if dados.get('contato_tb') is False:
-        neg.append('contato com TB')
-    # Campos pedidos apenas na tosse aguda
-    if 'hemoptise' in dados and dados.get('hemoptise') is False:
-        neg.append('hemoptise')
-    # Campos pedidos apenas na tosse crônica
-    if 'uso_ieca' in dados and dados.get('uso_ieca') is False:
-        neg.append('uso de IECA')
-    if 'perda_peso_involuntaria' in dados and dados.get('perda_peso_involuntaria') is False:
-        neg.append('perda de peso involuntária')
-    if 'tabagismo_ativo' in dados and dados.get('tabagismo_ativo') is False:
-        neg.append('tabagismo ativo')
+    """Pertinentes negativas documentadas no #Subjetivo — Tosse.
+    Foco nas red flags e nos achados que afastam pneumonia/TB/neoplasia."""
+    _campos = [
+        ('hemoptise',               'hemoptise'),
+        ('perda_peso_involuntaria', 'perda de peso involuntária'),
+        ('dispneia_progressiva',    'dispneia progressiva'),
+        ('dor_toracica_persistente','dor torácica persistente'),
+        ('saturacao_baixa',         'queda de saturação'),
+        ('sudorese_noturna',        'sudorese noturna'),
+        ('febre_alta',              'febre alta'),
+        ('estertores_ausculta',     'estertores à ausculta'),
+        ('dor_pleuritica',          'dor pleurítica'),
+        ('contato_tb',              'contato com TB'),
+    ]
+    neg = [label for chave, label in _campos if dados.get(chave) is False]
     return _fmt_negativas(neg)
 
 
@@ -1728,69 +1724,59 @@ def gerar_subjetivo_tosse(admissao):
     carater = 'produtiva' if dados.get('tosse_produtiva') else 'seca'
     partes.append(f'Tosse {carater} de duração {duracao}')
 
-    if dados.get('hemoptise'):
-        partes.append('com hemoptise')
-    if dados.get('dispneia_assoc'):
-        partes.append('dispneia progressiva' if dados.get('dispneia_progressiva') else 'dispneia associada')
-    if dados.get('febre'):
-        partes.append('febre alta' if dados.get('febre_alta') else 'febre')
+    # Caracterização adicional
+    carac = []
+    if dados.get('expectoracao_purulenta'): carac.append('expectoração purulenta')
+    if dados.get('tosse_paroxistica'):      carac.append('acessos paroxísticos')
+    if dados.get('guincho_inspiratorio'):   carac.append('guincho inspiratório (whoop)')
+    if dados.get('vomito_pos_tosse'):       carac.append('vômito pós-tosse')
+    if dados.get('piora_noturna_madrugada'): carac.append('piora noturna/madrugada')
+    if carac:
+        partes.append(', '.join(carac))
 
-    # Imunossupressão
-    if dados.get('imunossuprimido'):
-        isup = []
-        if dados.get('hiv_diagnosticado'):
-            s = 'HIV+'
-            if dados.get('hiv_em_tarv') is False:
-                s += ' sem TARV'
-            if dados.get('cd4_valor'):
-                s += f" CD4={dados['cd4_valor']}"
-            isup.append(s)
-        if dados.get('corticoide_cronico'):
-            isup.append('corticoide crônico')
-        if dados.get('imunossupressao_outro'):
-            isup.append('outra imunossupressão')
-        partes.append('Imunossupressão: ' + ', '.join(isup))
+    # Sinais infecciosos / pneumonia
+    infec = []
+    if dados.get('febre_alta'):          infec.append('febre alta')
+    if dados.get('estertores_ausculta'): infec.append('estertores crepitantes localizados')
+    if dados.get('dor_pleuritica'):      infec.append('dor pleurítica')
+    if dados.get('saturacao_baixa'):     infec.append('SpO₂ < 94%')
+    if infec:
+        partes.append(', '.join(infec))
 
-    if dados.get('contato_tb'):
-        partes.append('contato com TB')
-
-    # Sinais agudos
-    sinais_agudos = []
-    if dados.get('coriza_espirros'):       sinais_agudos.append('coriza/espirros')
-    if dados.get('odinofagia'):            sinais_agudos.append('odinofagia')
-    if dados.get('tosse_paroxistica'):     sinais_agudos.append('acessos paroxísticos')
-    if dados.get('guincho_inspiratorio'):  sinais_agudos.append('guincho inspiratório')
-    if sinais_agudos:
-        partes.append(', '.join(sinais_agudos))
-
-    # Gatilhos crônicos
-    if dados.get('uso_ieca'):
-        partes.append(f"uso de IECA ({dados.get('ieca_qual') or 'não especificado'})")
-    if dados.get('sensacao_gotejamento'):
-        partes.append('sensação de gotejamento pós-nasal')
-    if dados.get('piora_noturna_madrugada') or dados.get('piora_exercicio'):
-        partes.append('piora noturna/ao exercício')
-    if dados.get('chiado_episodico'):
-        partes.append('chiado episódico')
-    if dados.get('pirose_regurgitacao'):
-        partes.append('pirose/regurgitação')
-
-    # Alertas
+    # Red flags
     rf = []
-    if dados.get('perda_peso_involuntaria'):
-        rf.append(f"perda de peso ({dados.get('perda_peso_kg', '?')} kg)")
-    if dados.get('sudorese_noturna'):
-        rf.append('sudorese noturna')
-    if dados.get('tabagismo_ativo'):
-        rf.append(f"tabagismo {dados.get('tabagismo_maco_ano', '?')} maços-ano")
-    if dados.get('mudanca_padrao_tosse'):
-        rf.append('mudança do padrão da tosse')
-    if dados.get('dor_toracica_persistente'):
-        rf.append('dor torácica persistente')
-    if dados.get('rouquidao_persistente'):
-        rf.append('rouquidão persistente')
+    if dados.get('hemoptise'):                rf.append('hemoptise')
+    if dados.get('perda_peso_involuntaria'):  rf.append('perda de peso involuntária')
+    if dados.get('dispneia_progressiva'):     rf.append('dispneia progressiva')
+    if dados.get('dor_toracica_persistente'): rf.append('dor torácica persistente')
+    if dados.get('sudorese_noturna'):         rf.append('sudorese noturna')
     if rf:
-        partes.append('Alertas: ' + ', '.join(rf))
+        partes.append('Red flags: ' + ', '.join(rf))
+
+    # Pistas etiológicas
+    pistas = []
+    if dados.get('piora_pos_prandial') or dados.get('piora_deitado_drge'):
+        pistas.append('piora pós-prandial/ao deitar (DRGE?)')
+    if dados.get('gotejamento_pos_nasal') or dados.get('sensacao_gotejamento'):
+        pistas.append('gotejamento pós-nasal (UACS?)')
+    if dados.get('chiado_episodico') or dados.get('piora_exercicio'):
+        pistas.append('chiado/piora ao exercício (asma?)')
+    if dados.get('uso_ieca'):
+        pistas.append('uso de IECA' + (' — tosse iniciou após' if dados.get('tosse_inicio_apos_ieca') else ''))
+    if pistas:
+        partes.append('Pistas: ' + ', '.join(pistas))
+
+    # Contexto / contágio
+    ctx = []
+    if dados.get('infeccao_recente_precedeu'): ctx.append('IVAS recente precedeu')
+    if dados.get('contato_tb'):                ctx.append('contato com TB')
+    if dados.get('contato_pertussis'):         ctx.append('contato com coqueluche')
+    if dados.get('tabagismo_ativo'):           ctx.append('tabagismo ativo')
+    if dados.get('asma_diagnosticada'):        ctx.append('asma diagnosticada')
+    if dados.get('dpoc'):                      ctx.append('DPOC')
+    if dados.get('imunossuprimido'):           ctx.append('imunossuprimido')
+    if ctx:
+        partes.append('Contexto: ' + ', '.join(ctx))
 
     neg = _negativas_tosse(dados)
     if neg:
@@ -1828,6 +1814,8 @@ def _gerar_texto_tosse_analise(resultado, dados):
     if categoria in ('tosse_aguda_viral', 'tosse_aguda_bacteriana', 'tosse_pertussis_suspeita'):
         pos_str = '; '.join(resultado.get('positivos', [])[:3])
         linhas.append(f"{resultado.get('hipotese', '')}. Achados: {pos_str}.")
+        for r in resultado.get('ressalvas', []):
+            linhas.append(r)
         if resultado.get('alerta_influenza'):
             linhas.append('ALERTA: síndrome gripal — cobertura viral a considerar (≤48h de sintomas).')
         return '\n\n'.join(linhas)

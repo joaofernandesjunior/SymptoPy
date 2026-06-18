@@ -1004,6 +1004,10 @@ MODULE_SCHEMAS = {
                 _bool('tosse_paroxistica',  'Tosse em acessos / paroxística'),
                 _bool('piora_noturna_madrugada', 'Piora noturna / madrugada'),
             ]),
+            _block('Ausculta / Exame (pneumonia)', [
+                _bool('estertores_ausculta', 'Estertores crepitantes localizados'),
+                _bool('dor_pleuritica',      'Dor pleurítica (piora à inspiração)'),
+            ]),
             _block('Red Flags', [
                 _bool('hemoptise',          '⚠ Hemoptise', flag='red'),
                 _bool('perda_peso_involuntaria', '⚠ Perda de peso', flag='red'),
@@ -1027,6 +1031,7 @@ MODULE_SCHEMAS = {
                 _bool('infeccao_recente_precedeu', 'IVAS recente precedeu'),
                 _bool('contato_tb',          'Contato com tuberculose', flag='yellow'),
                 _bool('contato_pertussis',   'Contato com coqueluche'),
+                _bool('guincho_inspiratorio','Guincho inspiratório (whoop) após acessos'),
                 _bool('vomito_pos_tosse',    'Vômito após acesso de tosse'),
             ]),
             _block('Contexto', [

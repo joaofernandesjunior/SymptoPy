@@ -200,7 +200,7 @@ def render_field(field: dict, form: dict) -> bool:
     help_txt = field.get('help')
 
     if dep_on and not form.get(dep_on):
-        # Campo oculto (dependência não satisfeita): bool = não perguntado (None)
+        # Campo oculto (dependência não satisfeita): não documentar como negativa.
         if ftype == 'bool':
             form[key] = None
         else:
@@ -214,9 +214,9 @@ def render_field(field: dict, form: dict) -> bool:
 
     if ftype == 'bool':
         cur = form.get(key)
-        checked = st.checkbox(disp, value=(cur is True), key=wkey, help=help_txt)
-        # Desmarcado = "não perguntado" (None). O toggle do bloco define as negativas.
-        form[key] = True if checked else None
+        # Marcado = achado positivo (True); desmarcado = negativa pertinente (False).
+        # O app lembra o que perguntar, então o não-marcado conta como investigado e negado.
+        form[key] = st.checkbox(disp, value=(cur is True), key=wkey, help=help_txt)
         return True
     elif ftype == 'select':
         opts = field.get('options', [])
@@ -245,25 +245,8 @@ def render_block(block: dict, form: dict, schema_key: str = ''):
     flag = block.get('flag')
     cls = 'block-header red' if flag == 'red' else 'block-header'
     st.markdown(f'<div class="{cls}">{block["title"]}</div>', unsafe_allow_html=True)
-
-    bool_keys = []
     for field in block['fields']:
-        visible = render_field(field, form)
-        if visible and field.get('type') == 'bool':
-            bool_keys.append(field['key'])
-
-    # Toggle de negativas pertinentes do bloco (3º estado):
-    # itens não assinalados viram "Nega:" só quando o médico afirma tê-los investigado.
-    if bool_keys:
-        neg_key = f'_neg_{schema_key}_{block["title"]}'
-        negar = st.checkbox('☑ Demais itens deste bloco perguntados e NEGADOS',
-                            key=neg_key,
-                            help='Documenta como negativa pertinente ("Nega:") os itens '
-                                 'não marcados acima. Deixe desmarcado se NÃO investigou '
-                                 'esses itens — assim nada falso é registrado.')
-        for k in bool_keys:
-            if form.get(k) is not True:
-                form[k] = False if negar else None
+        render_field(field, form)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
