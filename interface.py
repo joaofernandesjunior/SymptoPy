@@ -193,14 +193,19 @@ def _merge_vitals(form: dict, consult: dict):
 # ─────────────────────────────────────────────────────────────────────────────
 # RENDER FIELD (3 estados)
 # ─────────────────────────────────────────────────────────────────────────────
-def render_field(field: dict, form: dict):
+def render_field(field: dict, form: dict) -> bool:
+    """Renderiza um campo. Retorna True se o widget foi exibido (dep satisfeita)."""
     key, ftype, label = field['key'], field['type'], field['label']
     flag, dep_on, default = field.get('flag'), field.get('depends_on'), field.get('default')
     help_txt = field.get('help')
 
     if dep_on and not form.get(dep_on):
-        form.setdefault(key, None if ftype == 'bool' else default)
-        return
+        # Campo oculto (dependência não satisfeita): bool = não perguntado (None)
+        if ftype == 'bool':
+            form[key] = None
+        else:
+            form.setdefault(key, default)
+        return False
 
     disp = label
     if flag == 'red':    disp = f'🔴 {label}'
@@ -209,8 +214,10 @@ def render_field(field: dict, form: dict):
 
     if ftype == 'bool':
         cur = form.get(key)
-        form[key] = st.checkbox(disp, value=bool(cur) if cur is not None else False,
-                                key=wkey, help=help_txt)
+        checked = st.checkbox(disp, value=(cur is True), key=wkey, help=help_txt)
+        # Desmarcado = "não perguntado" (None). O toggle do bloco define as negativas.
+        form[key] = True if checked else None
+        return True
     elif ftype == 'select':
         opts = field.get('options', [])
         labels, values = [o[1] for o in opts], [o[0] for o in opts]
@@ -231,14 +238,32 @@ def render_field(field: dict, form: dict):
                                         int(cur), int(step), key=wkey, help=help_txt)
     elif ftype == 'text':
         form[key] = st.text_input(disp, value=form.get(key, ''), key=wkey, help=help_txt)
+    return True
 
 
-def render_block(block: dict, form: dict):
+def render_block(block: dict, form: dict, schema_key: str = ''):
     flag = block.get('flag')
     cls = 'block-header red' if flag == 'red' else 'block-header'
     st.markdown(f'<div class="{cls}">{block["title"]}</div>', unsafe_allow_html=True)
+
+    bool_keys = []
     for field in block['fields']:
-        render_field(field, form)
+        visible = render_field(field, form)
+        if visible and field.get('type') == 'bool':
+            bool_keys.append(field['key'])
+
+    # Toggle de negativas pertinentes do bloco (3º estado):
+    # itens não assinalados viram "Nega:" só quando o médico afirma tê-los investigado.
+    if bool_keys:
+        neg_key = f'_neg_{schema_key}_{block["title"]}'
+        negar = st.checkbox('☑ Demais itens deste bloco perguntados e NEGADOS',
+                            key=neg_key,
+                            help='Documenta como negativa pertinente ("Nega:") os itens '
+                                 'não marcados acima. Deixe desmarcado se NÃO investigou '
+                                 'esses itens — assim nada falso é registrado.')
+        for k in bool_keys:
+            if form.get(k) is not True:
+                form[k] = False if negar else None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -424,7 +449,7 @@ with col_left:
         st.markdown('<div class="block-header" style="border-left-color:#00F0FF;color:#00F0FF;">'
                     'COLETA DIRIGIDA</div>', unsafe_allow_html=True)
         for block in schema.get('blocks', []):
-            render_block(block, form)
+            render_block(block, form, schema_key)
 
         # Exames complementares
         st.markdown('<div class="block-header">Exames Complementares</div>', unsafe_allow_html=True)
