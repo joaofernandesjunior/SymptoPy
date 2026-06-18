@@ -475,6 +475,25 @@ with col_right:
                                {**P, 'idade': P['idade'], 'sexo': P['sexo']})
         perfil = {**PERFIL_VAZIO, **st.session_state.perfil_farmaco, 'idade': P['idade']}
         resultado = verificar_interacoes(resultado, perfil)
+
+        # Receita híbrida — seletor de opções com a recomendada pré-marcada.
+        # A escolha do médico injeta a prescrição correspondente antes do SOAP.
+        op = resultado.get('opcoes_prescricao') if resultado else None
+        if op and op.get('opcoes'):
+            opcoes = op['opcoes']
+            labels = [o['label'] + ('  ⭐' if o.get('recomendado') else '') for o in opcoes]
+            rec_idx = next((i for i, o in enumerate(opcoes) if o.get('recomendado')), 0)
+            wkey = f'rxopt_{schema_key}'
+            st.markdown(f'<div style="font-size:0.72rem;color:#00F0FF;letter-spacing:1px;'
+                        f'margin:4px 0;">⚕ {op["grupo"].upper()} — ⭐ sugerida; troque se quiser</div>',
+                        unsafe_allow_html=True)
+            sel = st.radio(op['grupo'], labels, index=rec_idx, key=wkey,
+                           label_visibility='collapsed')
+            escolha = opcoes[labels.index(sel)]
+            # injeta a opção escolhida + eventuais prescrições fixas (sintomáticos)
+            resultado['prescricoes_estruturadas'] = (
+                escolha['rx'] + resultado.get('prescricoes_fixas', []))
+
         st.session_state.resultado = resultado
 
         if not resultado or resultado.get('_error'):

@@ -617,6 +617,49 @@ def _sintomaticos_tosse(dados):
     return rx, alertas
 
 
+def _opcoes_atb_pneumonia(recomendado):
+    """Menu de regimes de ATB para PAC — um marcado como 'recomendado'.
+    O médico vê todos e troca em 1 clique (dose, atípico, alergia)."""
+    def _o(oid, label, medicamento, qtd, unidade, posologia, nota):
+        return {'id': oid, 'label': label, 'recomendado': oid == recomendado,
+                'rx': [{'linha': label, 'medicamento': medicamento,
+                        'prescricoes': [{'quantidade': qtd, 'unidade': unidade,
+                                         'posologia': posologia}], 'nota': nota}]}
+    opcoes = [
+        _o('amox', 'Amoxicilina (hígido, sem comorbidade)', 'Amoxicilina',
+           '21 cápsulas', '500 mg', 'Tomar 2 cápsulas (1 g) a cada 8 horas por 5–7 dias.',
+           'Macrolídeo NÃO é 1ª linha — resistência pneumocócica > 30% no Brasil.'),
+        _o('azitro', 'Azitromicina (apresentação atípica)', 'Azitromicina',
+           '5 comprimidos', '500 mg', 'Tomar 1 comprimido ao dia por 5 dias.',
+           'Cobre Mycoplasma, Chlamydophila e Legionella. Para jovem sem toxemia/expectoração.'),
+        _o('doxi', 'Doxiciclina (atípico — alternativa)', 'Doxiciclina',
+           '14 comprimidos', '100 mg', 'Tomar 1 comprimido a cada 12 horas por 7 dias.',
+           'Alternativa ao macrolídeo para cobertura de atípicos.'),
+        _o('levo750', 'Levofloxacino 750 (alergia / dose respiratória)', 'Levofloxacino',
+           '5 comprimidos', '750 mg', 'Tomar 1 comprimido ao dia por 5 dias.',
+           'Fluoroquinolona respiratória — cobre pneumococo resistente e atípicos. Curso curto.'),
+        _o('levo500', 'Levofloxacino 500 (dose alternativa)', 'Levofloxacino',
+           '7 comprimidos', '500 mg', 'Tomar 1 comprimido ao dia por 7 dias.',
+           'Alternativa de dose ao esquema de 750 mg.'),
+    ]
+    # Opção combinada (comorbidade) — dupla cobertura
+    combo = {'id': 'amoxclav_azitro',
+             'label': 'Amox-Clav + Azitromicina (com comorbidade — dupla cobertura)',
+             'recomendado': recomendado == 'amoxclav_azitro',
+             'rx': [
+                 {'linha': 'Amox-Clav (com comorbidade)', 'medicamento': 'Amoxicilina-Clavulanato',
+                  'prescricoes': [{'quantidade': '14 comprimidos', 'unidade': '875/125 mg',
+                                   'posologia': 'Tomar 1 comprimido a cada 12 horas por 7 dias — com alimento.'}],
+                  'nota': 'Beta-lactâmico com cobertura ampliada — ATS/IDSA 2019.'},
+                 {'linha': 'Associar — cobertura de atípicos', 'medicamento': 'Azitromicina',
+                  'prescricoes': [{'quantidade': '5 comprimidos', 'unidade': '500 mg',
+                                   'posologia': 'Tomar 1 comprimido ao dia por 5 dias (em paralelo).'}],
+                  'nota': 'Dupla cobertura em comorbidades.'},
+             ]}
+    opcoes.insert(1, combo)
+    return opcoes
+
+
 def _enriquecer_tosse_rx(resultado, dados):
     """Adiciona prescricoes_estruturadas + orientacoes conforme categoria."""
     cat = resultado.get('categoria', '')
@@ -656,48 +699,20 @@ def _enriquecer_tosse_rx(resultado, dados):
                    not dados.get('febre_alta') and
                    not dados.get('estertores_ausculta'))
 
-        if alergia:
-            rx = [{
-                'linha':       'ATB — alergia à penicilina',
-                'medicamento': 'Levofloxacino',
-                'prescricoes': [{'quantidade': '5 comprimidos', 'unidade': '750 mg',
-                                 'posologia': 'Tomar 1 comprimido ao dia por 5 dias.'}],
-                'nota': 'Fluoroquinolona respiratória — cobre pneumococo resistente e atípicos.',
-            }]
-        elif atipica:
-            rx = [{
-                'linha':       '1ª linha — ATB (apresentação atípica)',
-                'medicamento': 'Azitromicina',
-                'prescricoes': [{'quantidade': '5 comprimidos', 'unidade': '500 mg',
-                                 'posologia': 'Tomar 1 comprimido ao dia por 5 dias.'}],
-                'nota': 'Cobre Mycoplasma, Chlamydophila e Legionella. Alternativa: Doxiciclina 100 mg 12/12h × 7 dias.',
-            }]
-        elif tem_comorbidade:
-            rx = [
-                {
-                    'linha':       '1ª linha — ATB (com comorbidade)',
-                    'medicamento': 'Amoxicilina-Clavulanato',
-                    'prescricoes': [{'quantidade': '14 comprimidos', 'unidade': '875/125 mg',
-                                     'posologia': 'Tomar 1 comprimido a cada 12 horas por 7 dias — com alimento.'}],
-                    'nota': '',
-                },
-                {
-                    'linha':       'Associar — cobertura de atípicos',
-                    'medicamento': 'Azitromicina',
-                    'prescricoes': [{'quantidade': '5 comprimidos', 'unidade': '500 mg',
-                                     'posologia': 'Tomar 1 comprimido ao dia por 5 dias (em paralelo com Amox-Clav).'}],
-                    'nota': 'Dupla cobertura em comorbidades — ATS/IDSA 2019.',
-                },
-            ]
-        else:
-            rx = [{
-                'linha':       '1ª linha — ATB (hígido, sem comorbidade)',
-                'medicamento': 'Amoxicilina',
-                'prescricoes': [{'quantidade': '21 cápsulas', 'unidade': '500 mg',
-                                 'posologia': 'Tomar 2 cápsulas (1 g) a cada 8 horas por 5 a 7 dias.'}],
-                'nota': 'Macrolídeo NÃO é 1ª linha — resistência pneumocócica > 30% no Brasil.',
-            }]
-        resultado['prescricoes_estruturadas'] = rx
+        # Define qual regime é o RECOMENDADO conforme alergia/comorbidade/apresentação
+        if alergia:        recomendado = 'levo750'
+        elif atipica:      recomendado = 'azitro'
+        elif tem_comorbidade: recomendado = 'amoxclav_azitro'
+        else:              recomendado = 'amox'
+
+        opcoes = _opcoes_atb_pneumonia(recomendado)
+        resultado['opcoes_prescricao'] = {
+            'grupo': 'Antibiótico para PAC',
+            'opcoes': opcoes,
+        }
+        # prescricoes_estruturadas = a recomendada (fallback p/ CLI e cópia direta)
+        rec = next((o for o in opcoes if o.get('recomendado')), opcoes[0])
+        resultado['prescricoes_estruturadas'] = rec['rx']
         resultado['orientacoes'] = {
             'repouso':        'Repouso relativo até resolução da febre.',
             'hidratacao':     'Hidratação oral generosa — ao menos 2 litros por dia.',
