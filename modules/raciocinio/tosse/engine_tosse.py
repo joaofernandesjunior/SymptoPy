@@ -130,13 +130,8 @@ def _avaliar_aguda(dados, imuno):
             'conduta': [
                 'RX de tórax (PA + perfil) — confirmar consolidação e extensão',
                 'Hemograma + PCR + creatinina + ureia (CURB-65 / PSI)',
-                'Hígido SEM comorbidades: Amoxicilina 1 g 8/8h VO × 5–7 dias '
-                '(1ª linha — ATS/IDSA 2019; macrolídeo NÃO é 1ª linha por resistência pneumocócica > 30%)',
-                'COM comorbidades (DM, DRC, ICC, DPOC, tabagismo, neoplasia, ATB < 3 meses): '
-                'Amox/Clavulanato 875/125 mg 12/12h + Azitromicina 500 mg/dia × 5 dias',
-                'Suspeita de atípica (jovem, intersticial, sem expectoração, sem toxemia): '
-                'Azitromicina 500 mg/dia × 5d OU Doxiciclina 100 mg 12/12h × 7d',
-                'Alergia a penicilina: Levofloxacino 750 mg/dia × 5 dias',
+                'Antibiótico conforme RECEITA abaixo — selecionado automaticamente por '
+                'comorbidade / alergia / apresentação (ATS/IDSA 2019)',
                 'CURB-65: 0–1 → ambulatorial | 2 → ponderar internação | ≥ 3 → internar | ≥ 5 → avaliar UTI',
             ],
             'internacao': dados.get('saturacao_baixa') or dados.get('febre_alta'),
@@ -654,6 +649,7 @@ def _enriquecer_tosse_rx(resultado, dados):
             dados.get('diabetes'), dados.get('drc'), dados.get('icc'),
             dados.get('dpoc'), dados.get('tabagismo_ativo'),
             dados.get('neoplasia'), dados.get('atb_recente_3m'), dados.get('imunossuprimido'),
+            dados.get('tem_comorbidade_cronica'),  # ponte do cabeçalho
         ])
         # Apresentação atípica: jovem, sem expectoração purulenta, sem estertores francos
         atipica = (not dados.get('expectoracao_purulenta') and

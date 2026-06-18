@@ -55,21 +55,31 @@ def _normalizar_urgencia(resultado: dict) -> dict:
 # correspondente. Aplicado com setdefault → o campo do módulo (se o médico
 # marcou/negou explicitamente) sempre vence. Só definimos True (presença);
 # nunca False — ausência de comorbidade no cabeçalho não é negativa clínica.
+# Cada comorbidade alimenta tanto as flags de SCORE (fr_*, sPESI, Wells) quanto
+# os nomes CANÔNICOS que os engines de conduta leem (diabetes, icc, drc, etc.),
+# para que a RECEITA também se adapte — não só os escores.
 _COMORB_PARA_FLAGS = {
-    'HAS':             {'fr_has': True},
-    'DM2':             {'fr_dm': True},
-    'DPOC':            {'dpoc_conhecida': True, 'spesi_cardiopulmonar': True},
-    'ICC':             {'spesi_cardiopulmonar': True},
+    'HAS':             {'fr_has': True, 'has': True},
+    'DM2':             {'fr_dm': True, 'diabetes': True},
+    'DPOC':            {'dpoc_conhecida': True, 'dpoc': True, 'spesi_cardiopulmonar': True},
+    'ICC':             {'spesi_cardiopulmonar': True, 'icc': True},
     'FA':              {'fa_arritmia': True},
-    'Cirrose':         {'hepatopatia': True},
-    'Asma':            {'asma_conhecida': True},
+    'Cirrose':         {'hepatopatia': True, 'cirrose': True},
+    'Asma':            {'asma_conhecida': True, 'asma_diagnosticada': True},
     'Dislipidemia':    {'fr_dislipidemia': True},
     'Obesidade':       {'fr_obesidade': True},
     'AVC prévio':      {'fr_aterosclerose_conhecida': True},
     'IAM prévio':      {'fr_aterosclerose_conhecida': True},
-    'Neoplasia ativa': {'neoplasia_ativa': True, 'fator_risco_tev': True},
-    'Tabagismo':       {'tabagista': True, 'fr_tabagismo': True},
-    'Etilismo':        {'etilista_desnutrido': True},
+    'Neoplasia ativa': {'neoplasia_ativa': True, 'neoplasia': True, 'fator_risco_tev': True},
+    'DRC':             {'drc': True, 'drc_conhecida': True},
+    'Tabagismo':       {'tabagista': True, 'tabagismo_ativo': True, 'fr_tabagismo': True},
+    'Etilismo':        {'etilista_desnutrido': True, 'etilismo': True},
+}
+
+# Comorbidades que, presentes, sinalizam risco para escolha de ATB/conduta
+# (ex.: PAC com comorbidade → cobertura ampliada — ATS/IDSA 2019).
+_COMORB_CRONICAS_RELEVANTES = {
+    'HAS', 'DM2', 'DPOC', 'ICC', 'Cirrose', 'DRC', 'Neoplasia ativa', 'Tabagismo',
 }
 
 
@@ -79,6 +89,8 @@ def _derivar_contexto_paciente(merged: dict, patient_data: dict) -> dict:
     for comorb in comorbs:
         for flag, valor in _COMORB_PARA_FLAGS.get(comorb, {}).items():
             merged.setdefault(flag, valor)
+    if any(c in _COMORB_CRONICAS_RELEVANTES for c in comorbs):
+        merged.setdefault('tem_comorbidade_cronica', True)
     return merged
 
 
