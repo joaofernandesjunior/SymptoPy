@@ -456,11 +456,18 @@ def _avaliar_cistite_feminina(dados):
             'Informar que sintomas devem melhorar em 24–48h',
             'Retornar se não houver melhora em 48h ou se surgirem febre/calafrio/dor lombar',
         ],
-        'prescricoes_estruturadas': [
-            _RX['nitrofurantoina_5d'],
-            _RX['fosfomicina'],
-            _RX['smxtmp_3d'],   # apenas se cultura disponível e sensível
-        ],
+        'opcoes_prescricao': {
+            'grupo': 'Antibiótico para cistite',
+            'opcoes': [
+                {'id': 'nitro', 'contexto': 'SUS', 'label': 'Nitrofurantoína 100mg × 5d',
+                 'recomendado': True, 'rx': [_RX['nitrofurantoina_5d']]},
+                {'id': 'fosfo', 'contexto': 'Ideal', 'label': 'Fosfomicina 3g dose única',
+                 'recomendado': False, 'rx': [_RX['fosfomicina']]},
+                {'id': 'smxtmp', 'contexto': 'Cultura', 'label': 'SMX-TMP × 3d (só se cultura sensível)',
+                 'recomendado': False, 'rx': [_RX['smxtmp_3d']]},
+            ],
+        },
+        'prescricoes_estruturadas': [_RX['nitrofurantoina_5d']],
         'exames': [
             'EAS: opcional (diagnóstico clínico suficiente com ≥2 sintomas típicos)',
             'Urocultura: NÃO necessária em apresentação típica sem fatores de risco',

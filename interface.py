@@ -481,7 +481,10 @@ with col_right:
         op = resultado.get('opcoes_prescricao') if resultado else None
         if op and op.get('opcoes'):
             opcoes = op['opcoes']
-            labels = [o['label'] + ('  ⭐' if o.get('recomendado') else '') for o in opcoes]
+            def _opt_label(o):
+                ctx = f"[{o['contexto']}] " if o.get('contexto') else ''
+                return f"{ctx}{o['label']}" + ('  ⭐' if o.get('recomendado') else '')
+            labels = [_opt_label(o) for o in opcoes]
             rec_idx = next((i for i, o in enumerate(opcoes) if o.get('recomendado')), 0)
             wkey = f'rxopt_{schema_key}'
             st.markdown(f'<div style="font-size:0.72rem;color:#00F0FF;letter-spacing:1px;'

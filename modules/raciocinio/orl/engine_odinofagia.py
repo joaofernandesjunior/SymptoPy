@@ -267,52 +267,53 @@ def _resultado_faringoamigdalite(dados) -> dict:
         tratar = False
 
     # ── Prescrições ──────────────────────────────────────────────────────────
-    prescricoes = []
-
-    if tratar:
-        if not alerg:
-            # Sem alergia: Penicilina G Benzatina IM ou Amoxicilina oral
-            prescricoes.append(
-                _rx('1ª linha — Dose Única', 'Penicilina G Benzatina 1.200.000 UI',
-                    [_p('1', 'ampola', 'IM profunda, glúteo — DOSE ÚNICA')],
-                    'Preferir IM: adesão máxima, sem resistência ao GAS. '
-                    'Criança < 27kg: 600.000 UI. Agitar bem a ampola antes de aspirar.')
-            )
-            prescricoes.append(
-                _rx('Alternativa oral × 10 dias', 'Amoxicilina 875mg',
-                    [_p('20', 'comprimidos', '1 comp VO 12/12h × 10 dias')],
-                    'Tomar até o fim do curso — mesmo sem sintomas — para evitar recidiva e '
-                    'sequela reumática.')
-            )
-
-        elif not alerg_g:
-            # Alergia não anafilática → Cefadroxila
-            prescricoes.append(
-                _rx('Alergia à penicilina (não anafilática)', 'Cefadroxila 500mg',
-                    [_p('20', 'comprimidos', '1 comp VO 12/12h × 10 dias')],
-                    'Cefalosporina 1ª geração com excelente atividade contra GAS. '
-                    'Reatividade cruzada < 1% — segura em alergia não anafilática a penicilina.')
-            )
-
-        else:
-            # Alergia grave / anafilaxia → Azitromicina
-            prescricoes.append(
-                _rx('Alergia grave à penicilina (anafilaxia)', 'Azitromicina 500mg',
-                    [
-                        _p('1', 'comp (D1)', '500mg VO — dia 1'),
-                        _p('4', 'comp 250mg (D2–5)', '250mg VO — dias 2 a 5'),
-                    ],
-                    '⚠️  Resistência do GAS à azitromicina: 5–15% no Brasil. '
-                    'Reavaliar em 72h — sem melhora indica falha ou etiologia viral.')
-            )
-
-    # Analgesia sempre
-    prescricoes.append(
+    # Analgesia é prescrição FIXA (sempre); o ATB vira seletor de opções.
+    prescricoes_fixas = [
         _rx('Analgesia / antitérmico', 'Ibuprofeno 600mg',
             [_p('20', 'comprimidos', '1 comp VO 8/8h durante as refeições × 5 dias')],
             'Melhor analgesia para odinofagia que paracetamol. '
             'Substituir por Paracetamol 750mg 6/6h em gastrite ou gestantes.')
-    )
+    ]
+
+    opcoes_atb = []
+    if tratar:
+        if not alerg:
+            opcoes_atb = [
+                {'id': 'benzatina', 'contexto': 'SUS', 'recomendado': True,
+                 'label': 'Penicilina G Benzatina IM — dose única',
+                 'rx': [_rx('1ª linha — Dose Única', 'Penicilina G Benzatina 1.200.000 UI',
+                            [_p('1', 'ampola', 'IM profunda, glúteo — DOSE ÚNICA')],
+                            'Preferir IM: adesão máxima, sem resistência ao GAS. '
+                            'Criança < 27kg: 600.000 UI. Agitar bem a ampola antes de aspirar.')]},
+                {'id': 'amox', 'contexto': 'Oral', 'recomendado': False,
+                 'label': 'Amoxicilina 875mg × 10 dias',
+                 'rx': [_rx('Alternativa oral × 10 dias', 'Amoxicilina 875mg',
+                            [_p('20', 'comprimidos', '1 comp VO 12/12h × 10 dias')],
+                            'Tomar até o fim do curso — mesmo sem sintomas — para evitar '
+                            'recidiva e sequela reumática.')]},
+            ]
+        elif not alerg_g:
+            opcoes_atb = [
+                {'id': 'cefadroxila', 'contexto': 'Alergia', 'recomendado': True,
+                 'label': 'Cefadroxila 500mg × 10 dias (alergia não anafilática)',
+                 'rx': [_rx('Alergia à penicilina (não anafilática)', 'Cefadroxila 500mg',
+                            [_p('20', 'comprimidos', '1 comp VO 12/12h × 10 dias')],
+                            'Cefalosporina 1ª geração com excelente atividade contra GAS. '
+                            'Reatividade cruzada < 1% — segura em alergia não anafilática.')]},
+            ]
+        else:
+            opcoes_atb = [
+                {'id': 'azitro', 'contexto': 'Alergia grave', 'recomendado': True,
+                 'label': 'Azitromicina (alergia grave/anafilaxia)',
+                 'rx': [_rx('Alergia grave à penicilina (anafilaxia)', 'Azitromicina 500mg',
+                            [_p('1', 'comp (D1)', '500mg VO — dia 1'),
+                             _p('4', 'comp 250mg (D2–5)', '250mg VO — dias 2 a 5')],
+                            '⚠️  Resistência do GAS à azitromicina: 5–15% no Brasil. '
+                            'Reavaliar em 72h — sem melhora indica falha ou etiologia viral.')]},
+            ]
+
+    rec_rx = next((o['rx'] for o in opcoes_atb if o.get('recomendado')), [])
+    prescricoes = rec_rx + prescricoes_fixas
 
     # ── Exames ───────────────────────────────────────────────────────────────
     if score == 2:
@@ -385,6 +386,9 @@ def _resultado_faringoamigdalite(dados) -> dict:
             if tratar else ['Antibiótico NÃO indicado — não melhora desfecho viral']
         ),
         'prescricoes_estruturadas': prescricoes,
+        'prescricoes_fixas': prescricoes_fixas,
+        'opcoes_prescricao': ({'grupo': 'Antibiótico (faringoamigdalite GAS)',
+                               'opcoes': opcoes_atb} if len(opcoes_atb) > 1 else None),
         'orientacoes': orientacoes,
         'encaminhar': encaminhar,
         'retorno': 'Retorno em 48–72h se sem melhora com ATB. PS se piora súbita.',
